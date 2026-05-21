@@ -1,0 +1,190 @@
+const fs = require('fs');
+
+// Normalize string for consistent matching
+function normalizeStr(str) {
+  if (!str) return '';
+  return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+// 1. Read BD files to build records
+const bdFiles = [
+  'DataBase/Data Bruta EP - BD 24-1.csv',
+  'DataBase/Data Bruta EP - BD 24-2.csv',
+  'DataBase/Data Bruta EP - BD 25-1.csv',
+  'DataBase/Data Bruta EP - BD 25-2.csv',
+  'DataBase/DB EP 26-1 - Enlace.csv'
+];
+
+let records = [];
+const processedProfs = new Set(); // to attach comments only once per prof-course combo
+const grouped = new Map(); // to aggregate student rows into section rows
+
+for (const file of bdFiles) {
+  if (!fs.existsSync(file)) continue;
+  const content = fs.readFileSync(file, 'utf-8').split('\n');
+  if (content.length < 2) continue;
+  
+  // Parse headers
+  const headerLine = content[0].trim();
+  const headers = [];
+  let inQ = false; let curr = '';
+  for (const char of headerLine) {
+    if (char === '"') inQ = !inQ;
+    else if (char === ',' && !inQ) { headers.push(curr.trim()); curr = ''; }
+    else curr += char;
+  }
+  headers.push(curr.trim());
+
+  const getCol = (cols, name) => {
+    const idx = headers.indexOf(name);
+    return idx >= 0 ? cols[idx] : undefined;
+  };
+
+  for (let i = 1; i < content.length; i++) {
+    const line = content[i].trim();
+    if (!line) continue;
+    let inQuotes = false; let current = ''; let cols = [];
+    for (const char of line) {
+      if (char === '"') inQuotes = !inQuotes;
+      else if (char === ',' && !inQuotes) { cols.push(current); current = ''; }
+      else current += char;
+    }
+    cols.push(current);
+    
+    const anioRaw = getCol(cols, 'anio_academico');
+    const semRaw = getCol(cols, 'semestre');
+    const daRaw = getCol(cols, 'departamento_academico');
+    const courseRaw = getCol(cols, 'nombre_curso');
+    const profRaw = getCol(cols, 'profesor');
+    const seccionRaw = getCol(cols, 'seccion');
+    
+    // Some older files might use different names, we take the average of all available ratings anyway.
+    // We'll calculate 'promedio' as the average of all columns that start with 'profesor_' and 'rea_evaluacion'
+    let ratingSum = 0;
+    let ratingCount = 0;
+    for (let j = 0; j < headers.length; j++) {
+      if (headers[j].startsWith('profesor_') || headers[j] === 'rea_evaluacion') {
+        const val = parseFloat((cols[j] || '').replace(',', '.'));
+        if (!isNaN(val) && val > 0) {
+          ratingSum += val;
+          ratingCount++;
+        }
+      }
+    }
+    const promedio = ratingCount > 0 ? (ratingSum / ratingCount) : 0;
+    
+    // For dimensions, we'll try to map them as best as possible.
+    const motivacion = parseFloat((getCol(cols, 'profesor_motivacion') || '').replace(',','.')) || 0;
+    const comunicacion = parseFloat((getCol(cols, 'profesor_retroalimentacion') || '').replace(',','.')) || 0;
+    const puntualidad = parseFloat((getCol(cols, 'profesor_estimulacion') || '').replace(',','.')) || 0;
+    const evaluaciones = parseFloat((getCol(cols, 'rea_evaluacion') || '').replace(',','.')) || 0;
+    
+    const codeRaw = getCol(cols, 'Codigo PROG REA') || `${courseRaw}_${seccionRaw}`;
+    const evaluacionComentario = (getCol(cols, 'otros_2') || getCol(cols, 'otros_3') || getCol(cols, 'otros_1') || '').trim();
+    
+    if (!courseRaw || !profRaw) continue;
+    if (profRaw.includes('?')) continue;
+    if (courseRaw.includes('?')) continue;
+
+    // Build cycle string: "24-2"
+    const anioShort = anioRaw ? anioRaw.slice(-2) : '';
+    const ciclo = (anioShort && semRaw) ? `${anioShort}-${semRaw}` : '';
+
+    // Unify professor name (Title Case)
+    const formattedProf = profRaw
+      .toLowerCase()
+      .split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+
+    // Format DA
+    let da = (daRaw || 'Humanidades').trim().toUpperCase();
+    let formattedDa = 'Humanidades';
+    if (da.includes('ECONOM')) formattedDa = 'Economía';
+    else if (da.includes('INGENIER') || da.includes('ENGINEER')) formattedDa = 'Ingeniería';
+    else if (da.includes('HUMAN')) formattedDa = 'Humanidades';
+    else if (da.includes('ADMINISTR')) formattedDa = 'Administración';
+    else if (da.includes('DERECHO') || da.includes('RECHTS')) formattedDa = 'Derecho';
+    else if (da.includes('MARKETING')) formattedDa = 'Marketing y Negocios Internacionales';
+    else if (da.includes('CONTABILIDAD')) formattedDa = 'Contabilidad';
+    else if (da.includes('CIENCIAS SOCIALES') || da.includes('SOCIALE')) formattedDa = 'Ciencias Sociales y Políticas';
+    else if (da.includes('FINANZAS')) formattedDa = 'Finanzas';
+
+    // Extract section exactly from the code (e.g. "_A")
+    const codeParts = codeRaw.split('_');
+    const parsedSection = codeParts.length > 1 ? codeParts[codeParts.length - 1] : (seccionRaw || 'Única');
+    
+    const finalSection = ciclo ? `${parsedSection} [${ciclo}]` : parsedSection;
+    const finalCourseCode = ciclo ? `${codeRaw} [${ciclo}]` : codeRaw;
+
+    // Group by courseCode + professor (Now includes cycle)
+    const key = `${finalCourseCode}|${formattedProf}`;
+    
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        courseCode: finalCourseCode,
+        courseName: courseRaw,
+        section: finalSection,
+        ciclo: ciclo,
+        professor: formattedProf,
+        departamento: formattedDa,
+        enrolled: 40,
+        responses: 0,
+        motivacionSum: 0,
+        comunicacionSum: 0,
+        puntualidadSum: 0,
+        evaluacionesSum: 0,
+        promedioSum: 0,
+        count: 0,
+        comentarios: []
+      });
+    }
+
+    const group = grouped.get(key);
+    group.responses += 1;
+    group.count += 1;
+    group.motivacionSum += motivacion || promedio;
+    group.comunicacionSum += comunicacion || promedio;
+    group.puntualidadSum += puntualidad || promedio;
+    group.evaluacionesSum += evaluaciones || promedio;
+    group.promedioSum += promedio;
+    
+    if (evaluacionComentario) {
+      group.comentarios.push(evaluacionComentario);
+    }
+  }
+}
+
+// Compute averages and build final records
+records = [];
+for (const [key, group] of grouped.entries()) {
+  const [_, profRaw] = key.split('|');
+  const courseRaw = group.courseName;
+
+  const n = group.count;
+  const avgPromedio = group.promedioSum / n;
+  
+  if (avgPromedio === 0) continue;
+  
+  records.push({
+    courseCode: group.courseCode,
+    courseName: group.courseName,
+    section: group.section,
+    ciclo: group.ciclo,
+    professor: group.professor,
+    departamento: group.departamento,
+    enrolled: group.responses > 0 ? group.responses : 1,
+    responses: group.responses,
+    alumnoCom: avgPromedio, alumnoPunt: avgPromedio, alumnoResp: avgPromedio, alumnoDedic: avgPromedio,
+    cursoIncent: avgPromedio, cursoObj: avgPromedio, cursoRec: avgPromedio, cursoDist: avgPromedio,
+    docenteMotiv: group.motivacionSum / n, 
+    docenteCom: group.comunicacionSum / n, 
+    docentePunt: group.puntualidadSum / n, 
+    docenteEval: group.evaluacionesSum / n,
+    comentarios: group.comentarios
+  });
+}
+
+fs.writeFileSync('public/survey_data.json', JSON.stringify(records, null, 2));
+console.log('Processed ' + records.length + ' aggregated records from BD files.');
+

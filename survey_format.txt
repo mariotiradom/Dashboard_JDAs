@@ -1,0 +1,163 @@
+BBDD
+: 
+Base 
+con data de las secciones don REA
+Contiene:
+ID alumno 
+Curso 
+Sección 
+Profesor 
+Código de curso (curso + sección) 
+Uso:
+Determinar 
+matriculados por sección
+ 
+Definir estructura de agregación (curso, sección, docente) 
+Ver cuantos salones tienen REA de cada departamento académico
+Encuesta
+: 
+Base de datos de resultados 
+Contiene:
+Código de curso 
+Profesor 
+Matriculados 
+Rptas
+ 
+Variables de evaluación: 
+Alumno: comunicación, puntualidad, responsabilidad, dedicación 
+Curso: incentivo, objetivo, recursos, distribución 
+Docente: motivación, evaluaciones, puntualidad, comunicación 
+Variables calculadas:
+Puntaje Alumno = 
+promedio(
+dimensión alumno) 
+Puntaje Curso = 
+promedio(
+dimensión curso) 
+Puntaje Profesor = 
+promedio(
+dimensión docente) 
+Puntaje Total = promedio de los tres anteriores 
+C
+obertura
+: 
+Validar calidad de datos 
+Cálculo:
+Cobertura = 
+Rptas
+ / Matriculados
+Output clave:
+Variable 
+CONDICIÓN
+ 
+= 1 si cobertura ≥ 50% 
+= 0 si no 
+General
+: 
+Construir métricas base a nivel 
+sección
+.
+Cálculo principal:
+PROMEDIO.SI.CONJUNTO(
+  Puntaje Total;
+  Código de Curso = sección;
+  CONDICIÓN = 1
+)
+Output:
+Promedio por sección 
+Ranking de secciones 
+Cursos
+: 
+Agregación a nivel curso (agrupa secciones).
+Cálculo:
+Promedio curso = promedio de observaciones (Encuesta)
+filtrado por:
+- curso
+- CONDICIÓN = 1
+Incluye:
+Puntaje total del curso 
+Promedios por dimensión: 
+Incentivo 
+Objetivo 
+Recursos 
+Distribución 
+Uso:
+Top / bottom cursos 
+Gráficos de evaluación del curso 
+Profesores
+: 
+Agregación a nivel docente.
+Cálculo:
+Promedio docente = promedio de observaciones (Encuesta)
+filtrado por:
+- docente
+- CONDICIÓN = 1
+Incluye:
+Puntaje docente 
+Dimensiones: 
+Motivación 
+Evaluaciones 
+Puntualidad 
+Comunicación 
+Adicional:
+Agrupa todas las secciones y cursos que dicta no lo hace a nivel individual. (IMP)
+Uso:
+Ranking top / bottom docentes 
+Gráficos de desempeño docente 
+ Alumnos
+: 
+Evaluación de la autoevaluación del estudiante.
+Cálculo:
+Puntaje alumno = promedio(
+  comunicación,
+  puntualidad,
+  responsabilidad,
+  dedicación
+)
+Filtrado por:
+CONDICIÓN = 1 
+Output:
+Promedio por sección 
+Ranking (top / bottom) 
+Uso:
+Bloque “Autoevaluación del estudiante” 
+LÓGICA GLOBAL DEL MODELO
+BBDD → define universo (matriculados, estructura)
+Encuesta → contiene resultados (puntajes)
+Cobertura → filtra datos válidos (≥50%)
+↓
+General → nivel sección
+Cursos → agregación por curso
+Profesores → agregación por docente
+Alumnos → dimensión estudiante
+↓
+Reporte → visualización final
+Macros
+Macro: 
+MacroProgramaREAJDA
+: 
+Generación y exportación del reporte en formato PDF.
+Lógica:
+Toma el valor del departamento desde: 
+Botón!D
+10 
+Define la ruta de guardado: 
+misma carpeta del archivo Excel (
+ThisWorkbook.Path
+) 
+Según el departamento seleccionado, exporta una hoja específica a PDF
+ (algún departamento académico)
+Acción principal:
+ 
+ExportAsFixedFormat
+ → genera PDF del informe
+Output:
+Archivo PDF: 
+ 
+"Informe JDA [Departamento].
+pdf
+"
+Características:
+No modifica datos 
+No recalcula métricas 
+Solo selecciona la hoja correspondiente y la exporta 
