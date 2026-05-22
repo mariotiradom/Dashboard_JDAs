@@ -38,7 +38,7 @@ export interface SurveyRecord extends SurveyResponseRaw {
 
 function calculateMetrics(raw: SurveyResponseRaw): SurveyRecord {
   const coverage = raw.responses / raw.enrolled;
-  const isValid = coverage >= 0.5;
+  const isValid = coverage >= 0.6;
 
   const puntajeAlumno = mean([raw.alumnoCom, raw.alumnoPunt, raw.alumnoResp, raw.alumnoDedic]);
   const puntajeCurso = mean([raw.cursoIncent, raw.cursoObj, raw.cursoRec, raw.cursoDist]);

@@ -12,6 +12,7 @@ interface Props {
 const CourseView: React.FC<Props> = ({ data }) => {
   const courses = Array.from(new Set(data.map(d => d.courseName))).sort();
   const [selectedCourse, setSelectedCourse] = useState<string>(courses[0] || '');
+  const [legendTooltip, setLegendTooltip] = useState<{show: boolean, x: number, y: number, text: string}>({show: false, x: 0, y: 0, text: ''});
 
   const activeCourse = (courses.includes(selectedCourse) ? selectedCourse : courses[0]) || '';
 
@@ -138,7 +139,24 @@ const CourseView: React.FC<Props> = ({ data }) => {
                   <td style={{ fontWeight: 500 }}>{row.professor}</td>
                   <td>
                     {(row.coverage * 100).toFixed(1)}%
-                    {!row.isValid && <span className="badge badge-warning" style={{ marginLeft: '0.5rem', fontSize: '0.65rem' }}>Baja</span>}
+                    {!row.isValid && 
+                      <span 
+                        className="badge badge-warning" 
+                        style={{ marginLeft: '0.5rem', fontSize: '0.65rem', cursor: 'help' }}
+                        onMouseEnter={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setLegendTooltip({
+                            show: true,
+                            x: rect.left + rect.width / 2,
+                            y: rect.top,
+                            text: 'EP por debajo del 60%'
+                          });
+                        }}
+                        onMouseLeave={() => setLegendTooltip({ ...legendTooltip, show: false })}
+                      >
+                        Baja
+                      </span>
+                    }
                   </td>
                   <td style={{ 
                     fontWeight: row.isValid ? 700 : 500, 
@@ -159,7 +177,26 @@ const CourseView: React.FC<Props> = ({ data }) => {
             </tbody>
           </table>
         </div>
+        </div>
       </div>
+      
+      {legendTooltip.show && (
+        <div style={{
+          position: 'fixed', left: legendTooltip.x, top: legendTooltip.y,
+          transform: 'translate(-50%, -100%)', marginTop: '-10px',
+          backgroundColor: 'white', padding: '8px 12px', borderRadius: '6px',
+          boxShadow: 'var(--shadow-md)', border: '1px solid var(--border-color)',
+          fontSize: '0.8rem', color: 'var(--text-primary)', zIndex: 1000,
+          pointerEvents: 'none', whiteSpace: 'nowrap'
+        }}>
+          {legendTooltip.text}
+          <div style={{
+            position: 'absolute', bottom: '-5px', left: '50%', transform: 'translateX(-50%)',
+            borderWidth: '5px 5px 0', borderStyle: 'solid',
+            borderColor: 'white transparent transparent transparent'
+          }}></div>
+        </div>
+      )}
     </div>
   );
 };
