@@ -59,7 +59,7 @@ function calculateMetrics(raw: SurveyResponseRaw): SurveyRecord {
 
 export async function fetchSurveyData(): Promise<SurveyRecord[]> {
   try {
-    const response = await fetch(`/survey_data.json?v=${new Date().getTime()}`);
+    const response = await fetch(`/survey_data_v2.json?v=${new Date().getTime()}`);
     if (!response.ok) {
       throw new Error('Network response was not ok');
     }

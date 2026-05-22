@@ -203,6 +203,6 @@ for (const [key, group] of grouped.entries()) {
   });
 }
 
-fs.writeFileSync('public/survey_data.json', JSON.stringify(records, null, 2));
+fs.writeFileSync('public/survey_data_v2.json', JSON.stringify(records, null, 2));
 console.log('Processed ' + records.length + ' aggregated records from BD files.');
 
