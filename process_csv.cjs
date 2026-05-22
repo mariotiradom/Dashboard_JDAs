@@ -178,9 +178,8 @@ for (const [key, group] of grouped.entries()) {
   const enrollKey = `${group.ciclo}_${group.courseName}_${pureSection}`;
   let enrolledStudents = enrollment[enrollKey];
   
-  if (!enrolledStudents || enrolledStudents < group.responses) {
-    // Fallback if not found or if responses > matriculados (data anomaly)
-    // We'll set a reasonable fallback: at least the number of responses, or an estimate
+  if (!enrolledStudents) {
+    // Fallback ONLY if not found in database. If found but responses > matriculados, trust the database.
     enrolledStudents = Math.max(group.responses * 2, 40);
   }
 
