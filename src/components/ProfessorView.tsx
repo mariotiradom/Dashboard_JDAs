@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { SurveyRecord } from '../services/googleSheets';
-import { mean, detectOutliers } from '../utils/statistics';
+import { mean } from '../utils/statistics';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, CartesianGrid, XAxis, YAxis, Bar, Cell } from 'recharts';
 import { AlertTriangle, User, Filter } from 'lucide-react';
 import SearchBar from './SearchBar';
@@ -35,7 +35,7 @@ const ProfessorView: React.FC<Props> = ({ data }) => {
   }, [allProfData, selectedSection]);
 
   const validProfData = useMemo(() => {
-    return profData;
+    return profData.filter(d => !(d.isOutlier && !d.isValid));
   }, [profData]);
 
   // Cálculos estadísticos (solo válidos)
@@ -52,16 +52,8 @@ const ProfessorView: React.FC<Props> = ({ data }) => {
     { subject: 'Comunicación', A: comScore, fullMark: 5 },
   ];
 
-  // Detección de Valores Atípicos (evaluado sobre TODAS las secciones del profe para no perder el contexto del Z-score)
-  const validScoresGlobal = allProfData.map(d => d.puntajeProfesor);
-  const outlierFlagsGlobal = detectOutliers(validScoresGlobal);
-  const validDataWithOutliersGlobal = allProfData.map((d, i) => ({
-    ...d,
-    isOutlier: outlierFlagsGlobal[i]
-  }));
-  
   // Filter the table data based on selection
-  let tableData = [...validDataWithOutliersGlobal];
+  let tableData = [...allProfData];
   if (selectedSection !== 'Todas las secciones') {
     tableData = tableData.filter(d => d.courseCode === selectedSection);
   }

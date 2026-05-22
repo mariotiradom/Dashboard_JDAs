@@ -1,4 +1,4 @@
-import { mean } from '../utils/statistics';
+import { mean, detectOutliers } from '../utils/statistics';
 
 export interface SurveyResponseRaw {
   courseCode: string;
@@ -30,6 +30,7 @@ export interface SurveyResponseRaw {
 export interface SurveyRecord extends SurveyResponseRaw {
   coverage: number;
   isValid: boolean;
+  isOutlier: boolean;
   puntajeAlumno: number;
   puntajeCurso: number;
   puntajeProfesor: number;
@@ -50,6 +51,7 @@ function calculateMetrics(raw: SurveyResponseRaw): SurveyRecord {
     ...raw,
     coverage,
     isValid,
+    isOutlier: false, // Calculated later
     puntajeAlumno,
     puntajeCurso,
     puntajeProfesor,
@@ -64,7 +66,20 @@ export async function fetchSurveyData(): Promise<SurveyRecord[]> {
       throw new Error('Network response was not ok');
     }
     const data: SurveyResponseRaw[] = await response.json();
-    return data.map(calculateMetrics);
+    const records = data.map(calculateMetrics);
+    
+    // Calcular isOutlier por profesor
+    const profs = Array.from(new Set(records.map(r => r.professor)));
+    for (const prof of profs) {
+      const profRecords = records.filter(r => r.professor === prof);
+      const scores = profRecords.map(r => r.puntajeProfesor);
+      const outliers = detectOutliers(scores);
+      profRecords.forEach((r, i) => {
+        r.isOutlier = outliers[i];
+      });
+    }
+    
+    return records;
   } catch (error) {
     console.error('Error fetching survey data:', error);
     return [];

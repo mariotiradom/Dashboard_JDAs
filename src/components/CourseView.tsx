@@ -21,7 +21,7 @@ const CourseView: React.FC<Props> = ({ data }) => {
   }, [data, activeCourse]);
 
   const validCourseData = useMemo(() => {
-    return courseData;
+    return courseData.filter(d => !(d.isOutlier && !d.isValid));
   }, [courseData]);
 
   // Promedio del curso basado en el puntaje docente
