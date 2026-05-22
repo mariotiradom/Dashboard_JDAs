@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 
 // Normalize string for consistent matching
 function normalizeStr(str) {
@@ -18,6 +19,13 @@ const bdFiles = [
 let records = [];
 const processedProfs = new Set(); // to attach comments only once per prof-course combo
 const grouped = new Map(); // to aggregate student rows into section rows
+
+let enrollment = {};
+try {
+  enrollment = JSON.parse(fs.readFileSync(path.join(__dirname, 'DataBase/enrollment.json'), 'utf-8'));
+} catch (e) {
+  console.log("No enrollment.json found or error reading it.", e);
+}
 
 for (const file of bdFiles) {
   if (!fs.existsSync(file)) continue;
@@ -166,6 +174,16 @@ for (const [key, group] of grouped.entries()) {
   
   if (avgPromedio === 0) continue;
   
+  const pureSection = group.section.split(' ')[0];
+  const enrollKey = `${group.ciclo}_${group.courseName}_${pureSection}`;
+  let enrolledStudents = enrollment[enrollKey];
+  
+  if (!enrolledStudents || enrolledStudents < group.responses) {
+    // Fallback if not found or if responses > matriculados (data anomaly)
+    // We'll set a reasonable fallback: at least the number of responses, or an estimate
+    enrolledStudents = Math.max(group.responses * 2, 40);
+  }
+
   records.push({
     courseCode: group.courseCode,
     courseName: group.courseName,
@@ -173,7 +191,7 @@ for (const [key, group] of grouped.entries()) {
     ciclo: group.ciclo,
     professor: group.professor,
     departamento: group.departamento,
-    enrolled: group.responses > 0 ? group.responses : 1,
+    enrolled: enrolledStudents,
     responses: group.responses,
     alumnoCom: avgPromedio, alumnoPunt: avgPromedio, alumnoResp: avgPromedio, alumnoDedic: avgPromedio,
     cursoIncent: avgPromedio, cursoObj: avgPromedio, cursoRec: avgPromedio, cursoDist: avgPromedio,
