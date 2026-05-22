@@ -35,7 +35,7 @@ const ProfessorView: React.FC<Props> = ({ data }) => {
   }, [allProfData, selectedSection]);
 
   const validProfData = useMemo(() => {
-    return profData.filter(d => d.isValid);
+    return profData;
   }, [profData]);
 
   // Cálculos estadísticos (solo válidos)
@@ -53,15 +53,15 @@ const ProfessorView: React.FC<Props> = ({ data }) => {
   ];
 
   // Detección de Valores Atípicos (evaluado sobre TODAS las secciones del profe para no perder el contexto del Z-score)
-  const validScoresGlobal = allProfData.filter(d => d.isValid).map(d => d.puntajeProfesor);
+  const validScoresGlobal = allProfData.map(d => d.puntajeProfesor);
   const outlierFlagsGlobal = detectOutliers(validScoresGlobal);
-  const validDataWithOutliersGlobal = allProfData.filter(d => d.isValid).map((d, i) => ({
+  const validDataWithOutliersGlobal = allProfData.map((d, i) => ({
     ...d,
     isOutlier: outlierFlagsGlobal[i]
   }));
   
   // Filter the table data based on selection
-  let tableData = [...validDataWithOutliersGlobal, ...allProfData.filter(d => !d.isValid).map(d => ({ ...d, isOutlier: false }))];
+  let tableData = [...validDataWithOutliersGlobal];
   if (selectedSection !== 'Todas las secciones') {
     tableData = tableData.filter(d => d.courseCode === selectedSection);
   }
