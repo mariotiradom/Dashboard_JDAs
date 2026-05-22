@@ -126,6 +126,7 @@ const CourseView: React.FC<Props> = ({ data }) => {
                 <th>Sección</th>
                 <th>Código</th>
                 <th>Profesor</th>
+                <th>Matriculados</th>
                 <th>Participación</th>
                 <th>Puntaje Docente</th>
                 <th>Estado</th>
@@ -137,6 +138,7 @@ const CourseView: React.FC<Props> = ({ data }) => {
                   <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{row.section}</td>
                   <td style={{ color: 'var(--text-secondary)' }}>{row.courseCode}</td>
                   <td style={{ fontWeight: 500 }}>{row.professor}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{row.enrolled}</td>
                   <td>
                     {(row.coverage * 100).toFixed(1)}%
                     {!row.isValid && 
@@ -176,7 +178,6 @@ const CourseView: React.FC<Props> = ({ data }) => {
               ))}
             </tbody>
           </table>
-        </div>
         </div>
       </div>
       
