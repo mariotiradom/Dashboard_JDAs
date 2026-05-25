@@ -95,6 +95,14 @@ for (const file of bdFiles) {
     const interes = parseFloat((getCol(cols, 'profesor_interes') || '').replace(',','.')) || 0;
     const respeto = parseFloat((getCol(cols, 'profesor_respeto') || '').replace(',','.')) || 0;
     
+    // Extract values specifically for the Mediana calculation (raw ungrouped data)
+    const rowMedianValues = [];
+    if (ayuda > 0) rowMedianValues.push(ayuda);
+    if (motiv1 > 0) rowMedianValues.push(motiv1);
+    if (motiv2 > 0) rowMedianValues.push(motiv2);
+    if (retroalimentacion > 0) rowMedianValues.push(retroalimentacion);
+    if (estimulacion > 0) rowMedianValues.push(estimulacion);
+    
     const codeRaw = getCol(cols, 'Codigo PROG REA') || `${courseRaw}_${seccionRaw}`;
     const evaluacionComentario = (getCol(cols, 'otros_2') || getCol(cols, 'otros_3') || getCol(cols, 'otros_1') || '').trim();
     
@@ -154,6 +162,7 @@ for (const file of bdFiles) {
         respetoSum: 0,
         promedioSum: 0,
         count: 0,
+        rawMedianScores: [],
         comentarios: []
       });
     }
@@ -168,6 +177,8 @@ for (const file of bdFiles) {
     group.interesSum += interes || promedio;
     group.respetoSum += respeto || promedio;
     group.promedioSum += promedio;
+    
+    group.rawMedianScores.push(...rowMedianValues);
     
     if (evaluacionComentario) {
       group.comentarios.push(evaluacionComentario);
@@ -185,6 +196,20 @@ for (const [key, group] of grouped.entries()) {
   const avgPromedio = group.promedioSum / n;
   
   if (avgPromedio === 0) continue;
+  
+  // Calculate Median of ungrouped raw data
+  let medianVal = 0;
+  if (group.rawMedianScores.length > 0) {
+    const sorted = group.rawMedianScores.sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    if (sorted.length % 2 === 0) {
+      medianVal = (sorted[mid - 1] + sorted[mid]) / 2;
+    } else {
+      medianVal = sorted[mid];
+    }
+  }
+  
+  const finalPuntajeDocente = medianVal > 0 ? (avgPromedio + medianVal) / 2 : avgPromedio;
   
   const pureSection = group.section.split(' ')[0];
   const enrollKey = `${group.ciclo}_${group.courseName}_${pureSection}`;
@@ -212,7 +237,7 @@ for (const [key, group] of grouped.entries()) {
     docenteEstim: group.estimulacionSum / n,
     docenteInteres: group.interesSum / n,
     docenteRespeto: group.respetoSum / n,
-    docentePromedio: group.promedioSum / n,
+    docentePromedio: finalPuntajeDocente,
     comentarios: group.comentarios
   });
 }
