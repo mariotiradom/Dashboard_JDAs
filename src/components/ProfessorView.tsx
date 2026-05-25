@@ -128,7 +128,7 @@ const ProfessorView: React.FC<Props> = ({ data, availableCiclos }) => {
       <div className="card mt-4">
         <h3 className="chart-title">Análisis de Secciones y Detección de Anomalías</h3>
         <p className="text-muted" style={{ marginBottom: '1.5rem', fontSize: '0.85rem' }}>
-          Se resaltan en <span style={{ color: 'var(--danger-dark)', fontWeight: 600 }}>rojo</span> aquellas secciones donde el puntaje del docente difiere estadísticamente (Z-Score / MAD) de su promedio habitual. Las filas opacas indican participación menor al 50%.
+          Se resaltan en <span style={{ color: 'var(--danger-dark)', fontWeight: 600 }}>rojo</span> aquellas secciones donde el puntaje del docente tiene una diferencia mayor a 1 punto respecto a su promedio habitual. Las filas opacas indican participación menor al 50%.
         </p>
 
         <div style={{ overflowX: 'auto' }}>
