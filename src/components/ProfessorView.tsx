@@ -131,25 +131,21 @@ const ProfessorView: React.FC<Props> = ({ data }) => {
 
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table">
-            <thead>
+            <thead className="table-header">
               <tr>
-                <th>Sección</th>
-                <th>Curso</th>
-                <th>Matriculados</th>
-                <th>Respuestas</th>
-                <th>Participación</th>
-                <th>Puntaje Docente</th>
-                <th>Estado</th>
+                <th>SECCIÓN</th>
+                <th>CURSO</th>
+                <th>PARTICIPACIÓN</th>
+                <th>PUNTAJE<br/>DOCENTE</th>
+                <th>ESTADO</th>
               </tr>
             </thead>
             <tbody>
               {tableData.sort((a,b) => a.courseCode.localeCompare(b.courseCode)).map((row, idx) => (
                 <tr key={idx} className={`${row.isOutlier ? 'row-outlier' : ''} ${!row.isValid ? 'row-invalid' : ''}`}>
-                  <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{row.section}</td>
+                  <td style={{ fontWeight: 600 }}>{row.section}</td>
                   <td style={{ color: 'var(--text-secondary)' }}>{row.courseName} <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>({row.courseCode})</span></td>
-                  <td>{row.enrolled}</td>
-                  <td>{row.responses}</td>
-                  <td>
+                  <td style={{ color: row.isValid ? 'inherit' : 'var(--rea-naranja)' }}>
                     {(row.coverage * 100).toFixed(1)}%
                     {!row.isValid && <span className="badge badge-warning" style={{ marginLeft: '0.5rem' }}>Baja Cobertura</span>}
                   </td>

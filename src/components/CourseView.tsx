@@ -121,25 +121,21 @@ const CourseView: React.FC<Props> = ({ data }) => {
         <h3 className="chart-title">Detalle de Secciones</h3>
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table">
-            <thead>
+            <thead className="table-header">
               <tr>
-                <th>Sección</th>
-                <th>Código</th>
-                <th>Profesor</th>
-                <th>Matriculados</th>
-                <th>Participación</th>
-                <th>Puntaje Docente</th>
-                <th>Estado</th>
+                <th>SECCIÓN</th>
+                <th>DOCENTE</th>
+                <th>PARTICIPACIÓN</th>
+                <th>PUNTAJE<br/>DOCENTE</th>
+                <th>ESTADO</th>
               </tr>
             </thead>
             <tbody>
-              {courseData.sort((a,b) => a.section.localeCompare(b.section)).map((row, idx) => (
+              {validCourseData.map((row, idx) => (
                 <tr key={idx} className={!row.isValid ? 'row-invalid' : ''}>
-                  <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{row.section}</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{row.courseCode}</td>
-                  <td style={{ fontWeight: 500 }}>{row.professor}</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{row.enrolled}</td>
-                  <td>
+                  <td style={{ fontWeight: 600 }}>{row.section}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{row.professor}</td>
+                  <td style={{ color: row.isValid ? 'inherit' : 'var(--rea-naranja)' }}>
                     {(row.coverage * 100).toFixed(1)}%
                     {!row.isValid && 
                       <span 
