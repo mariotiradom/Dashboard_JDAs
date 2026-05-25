@@ -17,7 +17,7 @@ except Exception as e:
     print("Error 26-1:", e)
 
 try:
-    df25_2 = pd.read_excel('DataBase/Matriculados 25-2.xlsx')
+    df25_2 = pd.read_csv('DataBase/BBDD REAS 25-2 - BBDD.csv')
     for _, row in df25_2.iterrows():
         curso = str(row.get('Curso', '')).strip()
         seccion = str(row.get('Sección', '')).strip()
