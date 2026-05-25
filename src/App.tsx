@@ -14,7 +14,7 @@ function App() {
   const [data, setData] = useState<SurveyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [authenticatedDA, setAuthenticatedDA] = useState<DepartamentoAcademico | null>(null);
-  const [selectedCiclo, setSelectedCiclo] = useState<string>('26-1');
+  const [selectedCiclo, setSelectedCiclo] = useState<string>('');
 
   useEffect(() => {
     const loadData = async () => {
@@ -39,13 +39,16 @@ function App() {
   const daData = data.filter(d => d.departamento === authenticatedDA?.name);
 
   // Filtro Global de Ciclo
-  const availableCiclos = Array.from(new Set(daData.map(d => d.ciclo).filter(Boolean)))
+  const allCycles = Array.from(new Set(daData.map(d => d.ciclo).filter(Boolean)))
     .filter(c => !c.startsWith('24-'))
     .sort().reverse();
+  const availableCiclos = allCycles.slice(0, 4);
 
-  const filteredData = selectedCiclo === 'Histórico' 
+  const activeCiclo = selectedCiclo || (availableCiclos[0] || '');
+
+  const filteredData = activeCiclo === 'Histórico' 
     ? daData 
-    : daData.filter(d => d.ciclo === selectedCiclo);
+    : daData.filter(d => d.ciclo === activeCiclo);
 
   const renderContent = () => {
     if (loading) {
@@ -57,22 +60,22 @@ function App() {
       );
     }
 
-    if (filteredData.length === 0 && selectedCiclo !== '26-1') {
+    if (filteredData.length === 0 && activeCiclo !== availableCiclos[0]) {
       return (
         <div className="flex-center" style={{ height: '100%', flexDirection: 'column', color: 'var(--text-muted)' }}>
           <BookOpen size={64} style={{ marginBottom: '1rem', opacity: 0.5 }} />
           <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Sin Datos</h2>
-          <p>No se encontraron registros para el departamento de {authenticatedDA.name} en el ciclo {selectedCiclo}.</p>
+          <p>No se encontraron registros para el departamento de {authenticatedDA.name} en el ciclo {activeCiclo}.</p>
         </div>
       );
     }
     
-    // Si es 26-1 y no hay datos, mostramos un mensaje amigable
-    if (filteredData.length === 0 && selectedCiclo === '26-1') {
+    // Si es el ciclo actual y no hay datos, mostramos un mensaje amigable
+    if (filteredData.length === 0 && activeCiclo === availableCiclos[0]) {
       return (
         <div className="flex-center" style={{ height: '100%', flexDirection: 'column', color: 'var(--text-muted)' }}>
           <BookOpen size={64} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-          <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Ciclo {selectedCiclo}</h2>
+          <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Ciclo {activeCiclo}</h2>
           <p>Aún no hay datos disponibles para el ciclo actual. Seleccione "Histórico" u otro ciclo en el filtro superior.</p>
         </div>
       );
@@ -80,13 +83,13 @@ function App() {
 
     switch (activeTab) {
       case 'overview':
-        return <DashboardOverview data={filteredData} daName={authenticatedDA.name} />;
+        return <DashboardOverview data={filteredData} daName={authenticatedDA.name} availableCiclos={availableCiclos} />;
       case 'professors':
-        return <ProfessorView data={filteredData} />;
+        return <ProfessorView data={filteredData} availableCiclos={availableCiclos} />;
       case 'courses':
-        return <CourseView data={filteredData} />;
+        return <CourseView data={filteredData} availableCiclos={availableCiclos} />;
       default:
-        return <DashboardOverview data={filteredData} daName={authenticatedDA.name} />;
+        return <DashboardOverview data={filteredData} daName={authenticatedDA.name} availableCiclos={availableCiclos} />;
     }
   };
 
@@ -143,12 +146,14 @@ function App() {
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Periodo:</span>
             <select 
               className="course-selector-mini"
-              value={selectedCiclo}
+              value={activeCiclo}
               onChange={(e) => setSelectedCiclo(e.target.value)}
               style={{ padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem', backgroundColor: 'var(--bg-color)' }}
             >
-              <option value="26-1">Ciclo actual (26-1)</option>
-              {availableCiclos.map(c => c !== '26-1' && (
+              {availableCiclos.length > 0 && (
+                <option value={availableCiclos[0]}>Ciclo actual ({availableCiclos[0]})</option>
+              )}
+              {availableCiclos.slice(1).map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
               <option value="Histórico">Histórico</option>

@@ -7,9 +7,10 @@ import SearchBar from './SearchBar';
 
 interface Props {
   data: SurveyRecord[];
+  availableCiclos: string[];
 }
 
-const ProfessorView: React.FC<Props> = ({ data }) => {
+const ProfessorView: React.FC<Props> = ({ data, availableCiclos }) => {
   const professors = Array.from(new Set(data.map(d => d.professor))).sort();
   const [selectedProf, setSelectedProf] = useState<string>(professors[0] || '');
   const [selectedSection, setSelectedSection] = useState<string>('Todas las secciones');
@@ -26,9 +27,9 @@ const ProfessorView: React.FC<Props> = ({ data }) => {
   }, [data, activeProf]);
 
   const availableSections = useMemo(() => {
-    const visibleData = allProfData.filter(d => !d.ciclo?.startsWith('24-'));
+    const visibleData = allProfData.filter(d => availableCiclos.includes(d.ciclo || ''));
     return ['Todas las secciones', ...Array.from(new Set(visibleData.map(d => d.courseCode))).sort()];
-  }, [allProfData]);
+  }, [allProfData, availableCiclos]);
 
   const profData = useMemo(() => {
     if (selectedSection === 'Todas las secciones') return allProfData;
@@ -54,7 +55,7 @@ const ProfessorView: React.FC<Props> = ({ data }) => {
   ];
 
   // Filter the table data based on selection
-  let tableData = [...allProfData].filter(d => !d.ciclo?.startsWith('24-'));
+  let tableData = [...allProfData].filter(d => availableCiclos.includes(d.ciclo || ''));
   if (selectedSection !== 'Todas las secciones') {
     tableData = tableData.filter(d => d.courseCode === selectedSection);
   }

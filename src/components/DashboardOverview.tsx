@@ -7,11 +7,12 @@ import { mean } from '../utils/statistics';
 interface Props {
   data: SurveyRecord[];
   daName: string;
+  availableCiclos: string[];
 }
 
 const MEDAL_CLASSES = ['gold', 'silver', 'bronze', 'normal', 'normal'];
 
-const DashboardOverview: React.FC<Props> = ({ data, daName }) => {
+const DashboardOverview: React.FC<Props> = ({ data, daName, availableCiclos }) => {
   const validData = data.filter(d => d.isValid);
 
   const totalCourses = new Set(data.map(d => d.courseName)).size;

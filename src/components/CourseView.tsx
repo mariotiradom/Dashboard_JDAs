@@ -7,9 +7,10 @@ import SearchBar from './SearchBar';
 
 interface Props {
   data: SurveyRecord[];
+  availableCiclos: string[];
 }
 
-const CourseView: React.FC<Props> = ({ data }) => {
+const CourseView: React.FC<Props> = ({ data, availableCiclos }) => {
   const courses = Array.from(new Set(data.map(d => d.courseName))).sort();
   const [selectedCourse, setSelectedCourse] = useState<string>(courses[0] || '');
   const [legendTooltip, setLegendTooltip] = useState<{show: boolean, x: number, y: number, text: string}>({show: false, x: 0, y: 0, text: ''});
@@ -131,7 +132,7 @@ const CourseView: React.FC<Props> = ({ data }) => {
               </tr>
             </thead>
             <tbody>
-              {validCourseData.filter(d => !d.ciclo?.startsWith('24-')).map((row, idx) => (
+              {validCourseData.filter(d => availableCiclos.includes(d.ciclo || '')).map((row, idx) => (
                 <tr key={idx} className={!row.isValid ? 'row-invalid' : ''}>
                   <td style={{ fontWeight: 600 }}>{row.section}</td>
                   <td style={{ color: 'var(--text-secondary)' }}>{row.professor}</td>
