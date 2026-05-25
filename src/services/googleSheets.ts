@@ -20,10 +20,14 @@ export interface SurveyResponseRaw {
   cursoRec: number;
   cursoDist: number;
   // Docente
+  docenteAyuda: number;
   docenteMotiv: number;
-  docenteEval: number;
-  docentePunt: number;
-  docenteCom: number;
+  docenteRetro: number;
+  docenteEstim: number;
+  docenteInteres: number;
+  docenteRespeto: number;
+  docentePromedio: number;
+  puntajeProfesor: number;
   comentarios?: string[];
 }
 
@@ -43,7 +47,7 @@ function calculateMetrics(raw: SurveyResponseRaw): SurveyRecord {
 
   const puntajeAlumno = mean([raw.alumnoCom, raw.alumnoPunt, raw.alumnoResp, raw.alumnoDedic]);
   const puntajeCurso = mean([raw.cursoIncent, raw.cursoObj, raw.cursoRec, raw.cursoDist]);
-  const puntajeProfesor = mean([raw.docenteMotiv, raw.docenteEval, raw.docentePunt, raw.docenteCom]);
+  const puntajeProfesor = raw.docentePromedio;
 
   const puntajeTotal = mean([puntajeAlumno, puntajeCurso, puntajeProfesor]);
 

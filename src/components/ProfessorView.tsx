@@ -42,16 +42,20 @@ const ProfessorView: React.FC<Props> = ({ data, availableCiclos }) => {
 
   // Cálculos estadísticos (solo válidos)
   const profScore = validProfData.length > 0 ? mean(validProfData.map(d => d.puntajeProfesor)) : 0;
+  const ayudaScore = validProfData.length > 0 ? mean(validProfData.map(d => d.docenteAyuda)) : 0;
   const motivScore = validProfData.length > 0 ? mean(validProfData.map(d => d.docenteMotiv)) : 0;
-  const evalScore = validProfData.length > 0 ? mean(validProfData.map(d => d.docenteEval)) : 0;
-  const puntScore = validProfData.length > 0 ? mean(validProfData.map(d => d.docentePunt)) : 0;
-  const comScore = validProfData.length > 0 ? mean(validProfData.map(d => d.docenteCom)) : 0;
+  const retroScore = validProfData.length > 0 ? mean(validProfData.map(d => d.docenteRetro)) : 0;
+  const estimScore = validProfData.length > 0 ? mean(validProfData.map(d => d.docenteEstim)) : 0;
+  const interesScore = validProfData.length > 0 ? mean(validProfData.map(d => d.docenteInteres)) : 0;
+  const respetoScore = validProfData.length > 0 ? mean(validProfData.map(d => d.docenteRespeto)) : 0;
 
   const radarData = [
+    { subject: 'Ayuda', A: ayudaScore, fullMark: 5 },
     { subject: 'Motivación', A: motivScore, fullMark: 5 },
-    { subject: 'Evaluaciones', A: evalScore, fullMark: 5 },
-    { subject: 'Puntualidad', A: puntScore, fullMark: 5 },
-    { subject: 'Comunicación', A: comScore, fullMark: 5 },
+    { subject: 'Retroalimentación', A: retroScore, fullMark: 5 },
+    { subject: 'Estimulación', A: estimScore, fullMark: 5 },
+    { subject: 'Interés', A: interesScore, fullMark: 5 },
+    { subject: 'Respeto', A: respetoScore, fullMark: 5 },
   ];
 
   // Filter the table data based on selection

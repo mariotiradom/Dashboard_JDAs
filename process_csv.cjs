@@ -67,11 +67,11 @@ for (const file of bdFiles) {
     const seccionRaw = getCol(cols, 'seccion');
     
     // Some older files might use different names, we take the average of all available ratings anyway.
-    // We'll calculate 'promedio' as the average of all columns that start with 'profesor_' and 'rea_evaluacion'
+    // We'll calculate 'promedio' as the average of all columns that start with 'profesor_' (excluding rea_evaluacion)
     let ratingSum = 0;
     let ratingCount = 0;
     for (let j = 0; j < headers.length; j++) {
-      if (headers[j].startsWith('profesor_') || headers[j] === 'rea_evaluacion') {
+      if (headers[j].startsWith('profesor_')) {
         const val = parseFloat((cols[j] || '').replace(',', '.'));
         if (!isNaN(val) && val > 0) {
           ratingSum += val;
@@ -81,11 +81,19 @@ for (const file of bdFiles) {
     }
     const promedio = ratingCount > 0 ? (ratingSum / ratingCount) : 0;
     
-    // For dimensions, we'll try to map them as best as possible.
-    const motivacion = parseFloat((getCol(cols, 'profesor_motivacion') || '').replace(',','.')) || 0;
-    const comunicacion = parseFloat((getCol(cols, 'profesor_retroalimentacion') || '').replace(',','.')) || 0;
-    const puntualidad = parseFloat((getCol(cols, 'profesor_estimulacion') || '').replace(',','.')) || 0;
-    const evaluaciones = parseFloat((getCol(cols, 'rea_evaluacion') || '').replace(',','.')) || 0;
+    // Extract 6 dimensions for the Hexagon, averaging motivacion1 and motivacion2
+    const ayuda = parseFloat((getCol(cols, 'profesor_ayuda') || '').replace(',','.')) || 0;
+    const motiv1 = parseFloat((getCol(cols, 'profesor_motivacion') || '').replace(',','.')) || 0;
+    const motiv2 = parseFloat((getCol(cols, 'profesor_motivacion2') || '').replace(',','.')) || 0;
+    let motivacionFinal = 0;
+    if (motiv1 > 0 && motiv2 > 0) motivacionFinal = (motiv1 + motiv2) / 2;
+    else if (motiv1 > 0) motivacionFinal = motiv1;
+    else if (motiv2 > 0) motivacionFinal = motiv2;
+
+    const retroalimentacion = parseFloat((getCol(cols, 'profesor_retroalimentacion') || '').replace(',','.')) || 0;
+    const estimulacion = parseFloat((getCol(cols, 'profesor_estimulacion') || '').replace(',','.')) || 0;
+    const interes = parseFloat((getCol(cols, 'profesor_interes') || '').replace(',','.')) || 0;
+    const respeto = parseFloat((getCol(cols, 'profesor_respeto') || '').replace(',','.')) || 0;
     
     const codeRaw = getCol(cols, 'Codigo PROG REA') || `${courseRaw}_${seccionRaw}`;
     const evaluacionComentario = (getCol(cols, 'otros_2') || getCol(cols, 'otros_3') || getCol(cols, 'otros_1') || '').trim();
@@ -138,10 +146,12 @@ for (const file of bdFiles) {
         departamento: formattedDa,
         enrolled: 40,
         responses: 0,
+        ayudaSum: 0,
         motivacionSum: 0,
-        comunicacionSum: 0,
-        puntualidadSum: 0,
-        evaluacionesSum: 0,
+        retroalimentacionSum: 0,
+        estimulacionSum: 0,
+        interesSum: 0,
+        respetoSum: 0,
         promedioSum: 0,
         count: 0,
         comentarios: []
@@ -151,10 +161,12 @@ for (const file of bdFiles) {
     const group = grouped.get(key);
     group.responses += 1;
     group.count += 1;
-    group.motivacionSum += motivacion || promedio;
-    group.comunicacionSum += comunicacion || promedio;
-    group.puntualidadSum += puntualidad || promedio;
-    group.evaluacionesSum += evaluaciones || promedio;
+    group.ayudaSum += ayuda || promedio;
+    group.motivacionSum += motivacionFinal || promedio;
+    group.retroalimentacionSum += retroalimentacion || promedio;
+    group.estimulacionSum += estimulacion || promedio;
+    group.interesSum += interes || promedio;
+    group.respetoSum += respeto || promedio;
     group.promedioSum += promedio;
     
     if (evaluacionComentario) {
@@ -194,10 +206,13 @@ for (const [key, group] of grouped.entries()) {
     responses: group.responses,
     alumnoCom: avgPromedio, alumnoPunt: avgPromedio, alumnoResp: avgPromedio, alumnoDedic: avgPromedio,
     cursoIncent: avgPromedio, cursoObj: avgPromedio, cursoRec: avgPromedio, cursoDist: avgPromedio,
-    docenteMotiv: group.motivacionSum / n, 
-    docenteCom: group.comunicacionSum / n, 
-    docentePunt: group.puntualidadSum / n, 
-    docenteEval: group.evaluacionesSum / n,
+    docenteAyuda: group.ayudaSum / n,
+    docenteMotiv: group.motivacionSum / n,
+    docenteRetro: group.retroalimentacionSum / n,
+    docenteEstim: group.estimulacionSum / n,
+    docenteInteres: group.interesSum / n,
+    docenteRespeto: group.respetoSum / n,
+    docentePromedio: group.promedioSum / n,
     comentarios: group.comentarios
   });
 }
