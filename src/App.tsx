@@ -83,13 +83,13 @@ function App() {
 
     switch (activeTab) {
       case 'overview':
-        return <DashboardOverview data={filteredData} daName={authenticatedDA.name} availableCiclos={availableCiclos} />;
+        return <DashboardOverview data={filteredData} daName={authenticatedDA.name} />;
       case 'professors':
         return <ProfessorView data={filteredData} availableCiclos={availableCiclos} />;
       case 'courses':
         return <CourseView data={filteredData} availableCiclos={availableCiclos} />;
       default:
-        return <DashboardOverview data={filteredData} daName={authenticatedDA.name} availableCiclos={availableCiclos} />;
+        return <DashboardOverview data={filteredData} daName={authenticatedDA.name} />;
     }
   };
 
