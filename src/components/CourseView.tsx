@@ -131,7 +131,7 @@ const CourseView: React.FC<Props> = ({ data }) => {
               </tr>
             </thead>
             <tbody>
-              {validCourseData.map((row, idx) => (
+              {validCourseData.filter(d => !d.ciclo?.startsWith('24-')).map((row, idx) => (
                 <tr key={idx} className={!row.isValid ? 'row-invalid' : ''}>
                   <td style={{ fontWeight: 600 }}>{row.section}</td>
                   <td style={{ color: 'var(--text-secondary)' }}>{row.professor}</td>

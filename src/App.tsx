@@ -39,7 +39,9 @@ function App() {
   const daData = data.filter(d => d.departamento === authenticatedDA?.name);
 
   // Filtro Global de Ciclo
-  const availableCiclos = Array.from(new Set(daData.map(d => d.ciclo).filter(Boolean))).sort().reverse();
+  const availableCiclos = Array.from(new Set(daData.map(d => d.ciclo).filter(Boolean)))
+    .filter(c => !c.startsWith('24-'))
+    .sort().reverse();
 
   const filteredData = selectedCiclo === 'Histórico' 
     ? daData 

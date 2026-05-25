@@ -26,7 +26,8 @@ const ProfessorView: React.FC<Props> = ({ data }) => {
   }, [data, activeProf]);
 
   const availableSections = useMemo(() => {
-    return ['Todas las secciones', ...Array.from(new Set(allProfData.map(d => d.courseCode))).sort()];
+    const visibleData = allProfData.filter(d => !d.ciclo?.startsWith('24-'));
+    return ['Todas las secciones', ...Array.from(new Set(visibleData.map(d => d.courseCode))).sort()];
   }, [allProfData]);
 
   const profData = useMemo(() => {
@@ -53,7 +54,7 @@ const ProfessorView: React.FC<Props> = ({ data }) => {
   ];
 
   // Filter the table data based on selection
-  let tableData = [...allProfData];
+  let tableData = [...allProfData].filter(d => !d.ciclo?.startsWith('24-'));
   if (selectedSection !== 'Todas las secciones') {
     tableData = tableData.filter(d => d.courseCode === selectedSection);
   }
