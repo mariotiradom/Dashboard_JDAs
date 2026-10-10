@@ -13,7 +13,8 @@ const bdFiles = [
   'DataBase/Data Bruta EP - BD 24-2.csv',
   'DataBase/Data Bruta EP - BD 25-1.csv',
   'DataBase/Data Bruta EP - BD 25-2.csv',
-  'DataBase/DB EP 26-1 - Enlace.csv'
+  'DataBase/DB EP 26-1 - Enlace.csv',
+  'DataBase/DB EP 26-2 - Enlace.csv'
 ];
 
 let records = [];
