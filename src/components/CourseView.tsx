@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
 import type { SurveyRecord } from '../services/googleSheets';
 import { mean } from '../utils/statistics';
+import { computeSectionVariance } from '../utils/sectionVariance';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { BookOpen } from 'lucide-react';
 import SearchBar from './SearchBar';
+import SectionVarianceCard from './SectionVarianceCard';
 
 interface Props {
   data: SurveyRecord[];
@@ -23,6 +25,11 @@ const CourseView: React.FC<Props> = ({ data, availableCiclos }) => {
 
   const validCourseData = useMemo(() => {
     return courseData.filter(d => !(d.isOutlier && !d.isValid));
+  }, [courseData]);
+
+  // Varianza entre secciones para el curso activo
+  const varianceData = useMemo(() => {
+    return computeSectionVariance(courseData);
   }, [courseData]);
 
   // Promedio del curso basado en el puntaje docente
@@ -118,6 +125,9 @@ const CourseView: React.FC<Props> = ({ data, availableCiclos }) => {
         </div>
       </div>
       
+      {/* ═══ Varianza entre Secciones ═══ */}
+      <SectionVarianceCard courseName={activeCourse} varianceData={varianceData} />
+
       <div className="card mt-4">
         <h3 className="chart-title">Detalle de Secciones</h3>
         <div style={{ overflowX: 'auto' }}>
