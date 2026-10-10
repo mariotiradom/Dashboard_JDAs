@@ -22,7 +22,7 @@ export const SectionVarianceCard: React.FC<Props> = ({ courseName, varianceData 
             Varianza entre Secciones — <span style={{ color: 'var(--text-secondary)' }}>{courseName}</span>
           </h3>
           <p className="dashboard-subtitle" style={{ fontSize: '0.85rem', margin: 0 }}>
-            Comparación del puntaje docente entre secciones válidas (≥60% participación) para identificar disparidades.
+            Comparación del puntaje docente entre secciones válidas (≥55% participación) para identificar disparidades.
           </p>
         </div>
       </div>

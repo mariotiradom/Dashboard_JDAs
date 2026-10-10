@@ -25,10 +25,10 @@ export interface ScatterAggregationResult {
 
 /**
  * Aggregates survey records by professor for scatter plot analysis.
- * Filters out sections below reliability threshold (isValid = false, i.e., coverage < 60%).
+ * Filters out sections below reliability threshold (isValid = false, i.e., coverage < 55%).
  */
 export function aggregateProfessorsScatter(records: SurveyRecord[]): ScatterAggregationResult {
-  // 1. Filter by reliability threshold (coverage >= 60%)
+  // 1. Filter by reliability threshold (coverage >= 55%)
   const validRecords = records.filter(r => r.isValid);
 
   if (validRecords.length === 0) {

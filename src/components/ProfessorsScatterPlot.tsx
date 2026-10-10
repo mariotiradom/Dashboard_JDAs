@@ -121,7 +121,7 @@ export const ProfessorsScatterPlot: React.FC<Props> = ({ data, daName }) => {
       <div className="card mt-4">
         <h3 className="chart-title">Volumen de Alumnos vs. Desempeño Docente</h3>
         <p className="dashboard-subtitle" style={{ fontSize: '0.85rem' }}>
-          No hay docentes con secciones válidas (≥ 60% participación) para mostrar en este período.
+          No hay docentes con secciones válidas (≥ 55% participación) para mostrar en este período.
         </p>
       </div>
     );
@@ -136,7 +136,7 @@ export const ProfessorsScatterPlot: React.FC<Props> = ({ data, daName }) => {
             Relación: Total de Matriculados vs. Puntaje Docente
           </h3>
           <p className="dashboard-subtitle" style={{ fontSize: '0.82rem', margin: 0 }}>
-            Análisis de cuadrantes para <strong>{daName}</strong>: evalúa la relación entre la carga total de estudiantes matriculados y el puntaje docente obtenido.
+            Matriculados vs. puntaje docente en <strong>{daName}</strong> (secciones válidas ≥ 55%).
           </p>
         </div>
 

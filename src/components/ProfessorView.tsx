@@ -219,7 +219,7 @@ const ProfessorView: React.FC<Props> = ({ data, availableCiclos }) => {
           </div>
           <div className="flex-center legend-item" style={{ gap: '0.5rem' }}>
             <div style={{ width: 12, height: 12, backgroundColor: 'var(--border-color)', borderRadius: 3 }}></div> Baja Cobertura
-            <div className="legend-tooltip">EP por debajo del 60%</div>
+            <div className="legend-tooltip">EP por debajo del 55%</div>
           </div>
         </div>
       </div>

@@ -41,7 +41,7 @@ export interface CourseVariance {
 // ── Aggregation ───────────────────────────────────────────────────────────────
 /**
  * Given all SurveyRecord rows for a single course, compute per-ciclo section
- * variance. Only valid sections (coverage >= 60%) are included.
+ * variance. Only valid sections (coverage >= 55%) are included.
  * Ciclos with fewer than 2 valid sections are skipped entirely.
  */
 export function computeSectionVariance(records: SurveyRecord[]): CourseVariance[] {

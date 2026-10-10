@@ -1,4 +1,4 @@
-import { mean, detectOutliers } from '../utils/statistics';
+import { detectOutliers } from '../utils/statistics';
 
 export interface SurveyResponseRaw {
   courseCode: string;
@@ -35,31 +35,23 @@ export interface SurveyRecord extends SurveyResponseRaw {
   coverage: number;
   isValid: boolean;
   isOutlier: boolean;
-  puntajeAlumno: number;
-  puntajeCurso: number;
   puntajeProfesor: number;
-  puntajeTotal: number;
+  puntajeTotal?: number;
 }
 
 function calculateMetrics(raw: SurveyResponseRaw): SurveyRecord {
-  const coverage = raw.responses / raw.enrolled;
-  const isValid = coverage >= 0.6;
+  const coverage = raw.enrolled > 0 ? raw.responses / raw.enrolled : 0;
+  const isValid = coverage >= 0.55;
 
-  const puntajeAlumno = mean([raw.alumnoCom, raw.alumnoPunt, raw.alumnoResp, raw.alumnoDedic]);
-  const puntajeCurso = mean([raw.cursoIncent, raw.cursoObj, raw.cursoRec, raw.cursoDist]);
   const puntajeProfesor = raw.docentePromedio;
-
-  const puntajeTotal = mean([puntajeAlumno, puntajeCurso, puntajeProfesor]);
 
   return {
     ...raw,
     coverage,
     isValid,
     isOutlier: false, // Calculated later
-    puntajeAlumno,
-    puntajeCurso,
     puntajeProfesor,
-    puntajeTotal
+    puntajeTotal: puntajeProfesor
   };
 }
 
