@@ -84,8 +84,8 @@ const ProfessorView: React.FC<Props> = ({ data, availableCiclos, initialProfesso
     return tableData.map(entry => {
       const cleanSection = entry.section.replace(/[[\]()]/g, '').trim().split(' ')[0] || entry.section;
       const chartLabel = isHistorical
-        ? `${entry.courseCode} Sec. ${cleanSection} • ${entry.ciclo}`
-        : `${entry.courseCode} Sec. ${cleanSection}`;
+        ? `${entry.courseCode} — ${cleanSection} • ${entry.ciclo}`
+        : `${entry.courseCode} — ${cleanSection}`;
       return {
         ...entry,
         chartLabel,
@@ -197,36 +197,43 @@ const ProfessorView: React.FC<Props> = ({ data, availableCiclos, initialProfesso
               </tr>
             </thead>
             <tbody>
-              {tableData.sort((a,b) => a.courseCode.localeCompare(b.courseCode)).map((row, idx) => (
-                <tr key={idx} className={`${row.isOutlier && row.isValid ? 'row-outlier' : ''} ${!row.isValid ? 'row-invalid' : ''}`}>
-                  <td style={{ fontWeight: 600 }}>{row.section.replace(/[[\]()]/g, '').trim()}</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{row.courseName} <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>{row.courseCode}</span></td>
-                  <td style={{ color: row.isValid ? 'inherit' : 'var(--rea-naranja)' }}>
-                    {(row.coverage * 100).toFixed(1)}%
-                    {!row.isValid && <span className="badge badge-warning" style={{ marginLeft: '0.5rem' }}>Baja Cobertura</span>}
-                  </td>
-                  <td style={{ 
-                    fontWeight: 700, 
-                    color: !row.isValid ? 'var(--text-muted)' : (row.isOutlier ? 'var(--danger-dark)' : 'var(--primary)'),
-                    fontSize: '1.05rem'
-                  }}>
-                    {row.puntajeProfesor.toFixed(2)}
-                  </td>
-                  <td>
-                    {!row.isValid ? (
-                      <div className="badge badge-warning" title="Excluido del puntaje promedio por tener menos del 55% de participación">
-                        Baja Cobertura
-                      </div>
-                    ) : row.isOutlier ? (
-                      <div className="badge badge-danger" style={{ display: 'flex', gap: '4px' }} title="Difiere en más de 1.0 punto del promedio histórico personal del docente">
-                        <AlertTriangle size={12} /> Desviación Atípica
-                      </div>
-                    ) : (
-                      <div className="badge badge-success">Consistente</div>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {tableData.sort((a,b) => a.courseCode.localeCompare(b.courseCode)).map((row, idx) => {
+                const rowClass = !row.isValid 
+                  ? 'row-invalid' 
+                  : row.isOutlier 
+                  ? 'row-outlier' 
+                  : 'row-valid';
+                return (
+                  <tr key={idx} className={rowClass}>
+                    <td style={{ fontWeight: 600 }}>{row.section.replace(/[[\]()]/g, '').trim()}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{row.courseName} <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>{row.courseCode}</span></td>
+                    <td style={{ color: row.isValid ? 'inherit' : 'var(--rea-naranja)' }}>
+                      {(row.coverage * 100).toFixed(1)}%
+                      {!row.isValid && <span className="badge badge-warning" style={{ marginLeft: '0.5rem' }}>Baja Cobertura</span>}
+                    </td>
+                    <td style={{ 
+                      fontWeight: 700, 
+                      color: !row.isValid ? 'var(--text-muted)' : (row.isOutlier ? 'var(--danger-dark)' : 'var(--primary)'),
+                      fontSize: '1.05rem'
+                    }}>
+                      {row.puntajeProfesor.toFixed(2)}
+                    </td>
+                    <td>
+                      {!row.isValid ? (
+                        <div className="badge badge-warning" title="Excluido del puntaje promedio por tener menos del 55% de participación">
+                          Baja Cobertura
+                        </div>
+                      ) : row.isOutlier ? (
+                        <div className="badge badge-danger" style={{ display: 'flex', gap: '4px' }} title="Difiere en más de 1.0 punto del promedio histórico personal del docente">
+                          <AlertTriangle size={12} /> Desviación Atípica
+                        </div>
+                      ) : (
+                        <div className="badge badge-success">Consistente</div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -288,7 +295,7 @@ const ProfessorView: React.FC<Props> = ({ data, availableCiclos, initialProfesso
                 {chartData.map((entry, index) => (
                   <Cell 
                     key={`cell-${index}`} 
-                    fill={!entry.isValid ? '#cbd5e1' : (entry.isOutlier ? 'var(--rea-naranja-intenso)' : 'var(--rea-azul-pastel)')} 
+                    fill={!entry.isValid ? '#cbd5e1' : (entry.isOutlier ? 'var(--rea-naranja-intenso)' : 'var(--rea-turquesa)')} 
                   />
                 ))}
               </Bar>
@@ -297,7 +304,7 @@ const ProfessorView: React.FC<Props> = ({ data, availableCiclos, initialProfesso
         </div>
         <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
           <div className="flex-center" style={{ gap: '0.5rem' }}>
-            <div style={{ width: 12, height: 12, backgroundColor: 'var(--rea-azul-pastel)', borderRadius: 3 }}></div> Consistente
+            <div style={{ width: 12, height: 12, backgroundColor: 'var(--rea-turquesa)', borderRadius: 3 }}></div> Consistente
           </div>
           <div className="flex-center legend-item" style={{ gap: '0.5rem' }}>
             <div style={{ width: 12, height: 12, backgroundColor: 'var(--rea-naranja-intenso)', borderRadius: 3 }}></div> Desviación Atípica

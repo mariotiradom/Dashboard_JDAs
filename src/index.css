@@ -383,6 +383,14 @@ body {
   background-color: rgba(242, 103, 73, 0.1) !important;
 }
 
+.row-valid {
+  background-color: rgba(61, 209, 178, 0.04);
+}
+
+.row-valid:hover {
+  background-color: rgba(61, 209, 178, 0.09) !important;
+}
+
 .row-invalid {
   opacity: 0.55;
 }

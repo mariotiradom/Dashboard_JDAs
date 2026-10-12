@@ -120,7 +120,7 @@ const DashboardOverview: React.FC<Props> = ({ data, allDaData, daName, onSelectP
         <div className="card chart-container">
           <h3 className="chart-title">
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <BookOpen size={18} color="var(--rea-naranja-intenso)" />
+              <BookOpen size={18} color="var(--rea-turquesa)" />
               Top Docentes del Departamento
             </span>
           </h3>
@@ -152,10 +152,10 @@ const DashboardOverview: React.FC<Props> = ({ data, allDaData, daName, onSelectP
                   <div className="ranking-bar-bg">
                     <div className="ranking-bar-fill" style={{
                       width: `${(prof.score / 5) * 100}%`,
-                      background: 'linear-gradient(90deg, var(--rea-goldenrod), var(--rea-naranja-intenso))'
+                      background: 'linear-gradient(90deg, #2dd4bf, var(--rea-turquesa))'
                     }} />
                   </div>
-                  <div className="ranking-score" style={{ color: 'var(--rea-naranja-intenso)' }}>{prof.score.toFixed(2)}</div>
+                  <div className="ranking-score" style={{ color: 'var(--rea-turquesa)' }}>{prof.score.toFixed(2)}</div>
                 </div>
               ))}
             </div>

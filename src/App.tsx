@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, BookOpen, Loader2, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, BookOpen, Loader2, LogOut, HelpCircle } from 'lucide-react';
 import { fetchSurveyData } from './services/googleSheets';
 import type { SurveyRecord } from './services/googleSheets';
 import DashboardOverview from './components/DashboardOverview';
 import ProfessorView from './components/ProfessorView';
 import CourseView from './components/CourseView';
+import GuideView from './components/GuideView';
 import AccessGate from './components/AccessGate';
 import SplashScreen from './components/SplashScreen';
 import type { DepartamentoAcademico } from './config/daConfig';
 import { isCicloBeforeOrEqual } from './utils/cycles';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'professors' | 'courses'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'professors' | 'courses' | 'guide'>('overview');
   const [data, setData] = useState<SurveyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [authenticatedDA, setAuthenticatedDA] = useState<DepartamentoAcademico | null>(null);
@@ -119,6 +120,8 @@ function App() {
             onSelectProfessor={handleSelectProfessor} 
           />
         );
+      case 'guide':
+        return <GuideView onNavigateTab={setActiveTab} />;
       default:
         return (
           <DashboardOverview 
@@ -166,6 +169,13 @@ function App() {
           >
             <BookOpen size={20} />
             <span>Análisis por Curso</span>
+          </div>
+          <div 
+            className={`nav-item ${activeTab === 'guide' ? 'active' : ''}`}
+            onClick={() => setActiveTab('guide')}
+          >
+            <HelpCircle size={20} />
+            <span>Guía de Uso</span>
           </div>
         </nav>
 
