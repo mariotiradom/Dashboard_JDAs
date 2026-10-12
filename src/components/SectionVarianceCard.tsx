@@ -1,210 +1,425 @@
-import React from 'react';
-import { AlertTriangle, Layers } from 'lucide-react';
-import type { CourseVariance } from '../utils/sectionVariance';
-import { getTier } from '../utils/sectionVariance';
+import { AlertTriangle, Layers, Info } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ReferenceLine,
+  Cell,
+  LabelList
+} from 'recharts';
+import type { CourseVariance, HistoricalCourseVariance } from '../utils/sectionVariance';
 
 interface Props {
   courseName: string;
   varianceData: CourseVariance[];
+  historicalVariance?: HistoricalCourseVariance | null;
+  isHistorical?: boolean;
+  onSelectProfessor?: (profName: string) => void;
 }
 
-export const SectionVarianceCard: React.FC<Props> = ({ courseName, varianceData }) => {
-  if (!varianceData || varianceData.length === 0) {
-    return null;
+interface CustomChartTooltipProps {
+  active?: boolean;
+  payload?: any[];
+  promedioCurso: number;
+}
+
+const CustomChartTooltip: React.FC<CustomChartTooltipProps> = ({ active, payload, promedioCurso }) => {
+  if (!active || !payload || !payload.length) return null;
+  const data = payload[0].payload;
+  const isPositive = data.delta >= 0;
+  const deltaColor = isPositive ? 'var(--rea-turquesa)' : 'var(--rea-naranja-intenso)';
+  const deltaText = isPositive ? `+${data.delta.toFixed(2)} sobre la media` : `${data.delta.toFixed(2)} bajo la media`;
+
+  return (
+    <div
+      style={{
+        backgroundColor: '#ffffff',
+        borderRadius: '8px',
+        padding: '10px 14px',
+        boxShadow: 'var(--shadow-md)',
+        border: '1px solid var(--border-color)',
+        fontSize: '0.82rem',
+        color: 'var(--text-primary)',
+        minWidth: '220px'
+      }}
+    >
+      <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '4px' }}>
+        {data.professor}
+      </div>
+      {data.sectionLabel && (
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '6px' }}>
+          Sección {data.sectionLabel}
+        </div>
+      )}
+      <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+        <div>
+          <strong>Puntaje:</strong> <span style={{ fontWeight: 700 }}>{data.puntaje.toFixed(2)}</span> / 5.0
+        </div>
+        <div>
+          <strong>Participación:</strong> {Math.round(data.coverage * 100)}%
+        </div>
+        {data.isValid && promedioCurso > 0 && (
+          <div style={{ color: deltaColor, fontWeight: 600 }}>
+            {deltaText}
+          </div>
+        )}
+        {!data.isValid && (
+          <div style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            Baja Cobertura • Excluido del promedio
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export const SectionVarianceCard: React.FC<Props> = ({
+  courseName,
+  varianceData,
+  historicalVariance,
+  isHistorical = false,
+  onSelectProfessor
+}) => {
+  // ══════════════════════════════════════════════════════════════════════════════
+  // CASO 1: VISTA HISTÓRICA (Consolidado por docente sin mencionar secciones)
+  // ══════════════════════════════════════════════════════════════════════════════
+  if (isHistorical) {
+    if (!historicalVariance || historicalVariance.docentes.length === 0) {
+      return (
+        <div className="card mt-4">
+          <h3 className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Layers size={20} color="var(--primary)" />
+            Varianza Histórica entre Docentes: <span className="text-gradient" style={{ fontWeight: 800 }}>{courseName}</span>
+          </h3>
+          <p className="dashboard-subtitle" style={{ fontSize: '0.85rem' }}>
+            No hay registros disponibles en este curso para realizar la comparativa histórica.
+          </p>
+        </div>
+      );
+    }
+
+    const { promedioCurso, spread, isHighDispersion, hasValidSections, docentes } = historicalVariance;
+
+    const chartData = docentes.map(doc => ({
+      ...doc,
+      label: doc.professor,
+      puntaje: doc.promedioDocente,
+      coverage: doc.avgCoverage,
+      sectionLabel: ''
+    }));
+
+    return (
+      <div className="card mt-4">
+        {/* Header con foco en el curso */}
+        <div className="flex-between mb-3" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            <h3 className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+              <Layers size={20} color="var(--primary)" />
+              Varianza Histórica entre Docentes: <span className="text-gradient" style={{ fontWeight: 800 }}>{courseName}</span>
+            </h3>
+            <p className="dashboard-subtitle" style={{ fontSize: '0.82rem', margin: 0 }}>
+              Comparación horizontal del desempeño docente histórico respecto a la media del curso
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {hasValidSections && (
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                Promedio histórico del curso: <strong style={{ color: 'var(--primary)' }}>{promedioCurso.toFixed(2)}</strong>
+              </span>
+            )}
+            {docentes.filter(d => d.isValid).length > 1 && (
+              isHighDispersion ? (
+                <span
+                  className="badge badge-warning"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    fontSize: '0.75rem',
+                    padding: '4px 8px',
+                    backgroundColor: 'var(--rea-rojo-claro)',
+                    color: 'var(--rea-naranja-intenso)',
+                    fontWeight: 600
+                  }}
+                  title="Diferencia máxima entre docentes ≥ 0.5 puntos"
+                >
+                  <AlertTriangle size={14} />
+                  Dispersión Alta: {spread.toFixed(2)}
+                </span>
+              ) : (
+                <span
+                  className="badge badge-success"
+                  style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                  title="Diferencia máxima entre docentes < 0.5 puntos"
+                >
+                  Dispersión Baja: {spread.toFixed(2)}
+                </span>
+              )
+            )}
+          </div>
+        </div>
+
+        {/* Gráfico Horizontal de Barras */}
+        <div style={{ width: '100%', minHeight: '240px', marginTop: '1rem' }}>
+          <ResponsiveContainer width="100%" height={Math.max(240, chartData.length * 52)}>
+            <BarChart
+              layout="vertical"
+              data={chartData}
+              margin={{ top: 20, right: 65, left: 15, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border-color)" />
+              <XAxis
+                type="number"
+                domain={[0, 5]}
+                ticks={[0, 1, 2, 3, 4, 5]}
+                tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
+              />
+              <YAxis
+                type="category"
+                dataKey="label"
+                width={170}
+                tick={{ fill: 'var(--text-primary)', fontSize: 12, fontWeight: 600 }}
+              />
+              <RechartsTooltip
+                content={<CustomChartTooltip promedioCurso={promedioCurso} />}
+                cursor={{ fill: 'rgba(32, 78, 207, 0.04)' }}
+              />
+              {hasValidSections && (
+                <ReferenceLine
+                  x={promedioCurso}
+                  stroke="var(--primary)"
+                  strokeDasharray="4 4"
+                  strokeWidth={2}
+                  label={{
+                    value: `Media: ${promedioCurso.toFixed(2)}`,
+                    position: 'top',
+                    fill: 'var(--primary)',
+                    fontSize: 11,
+                    fontWeight: 700
+                  }}
+                />
+              )}
+              <Bar
+                dataKey="puntaje"
+                radius={[0, 6, 6, 0]}
+                barSize={24}
+                style={{ cursor: onSelectProfessor ? 'pointer' : 'default' }}
+                onClick={(entry: any) => {
+                  if (entry && entry.professor) {
+                    onSelectProfessor?.(entry.professor);
+                  }
+                }}
+              >
+                {chartData.map((entry, index) => {
+                  let fill = '#cbd5e1';
+                  if (entry.isValid && hasValidSections) {
+                    fill = entry.delta >= 0 ? 'var(--rea-turquesa)' : 'var(--rea-naranja-intenso)';
+                  }
+                  return <Cell key={`cell-${index}`} fill={fill} />;
+                })}
+                <LabelList
+                  dataKey="puntaje"
+                  position="right"
+                  formatter={(val: any) => typeof val === 'number' ? val.toFixed(2) : val}
+                  style={{ fill: 'var(--text-primary)', fontSize: 12, fontWeight: 700 }}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Leyenda del gráfico */}
+        <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', marginTop: '1rem', fontSize: '0.82rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+          <div className="flex-center" style={{ gap: '0.4rem' }}>
+            <div style={{ width: 12, height: 12, backgroundColor: 'var(--rea-turquesa)', borderRadius: 3 }}></div> Sobre la media
+          </div>
+          <div className="flex-center" style={{ gap: '0.4rem' }}>
+            <div style={{ width: 12, height: 12, backgroundColor: 'var(--rea-naranja-intenso)', borderRadius: 3 }}></div> Bajo la media
+          </div>
+          <div className="flex-center" style={{ gap: '0.4rem' }}>
+            <div style={{ width: 12, height: 12, backgroundColor: '#cbd5e1', borderRadius: 3 }}></div> Baja Cobertura
+          </div>
+        </div>
+
+        {/* Footer explicativo */}
+        <div style={{ marginTop: '1.25rem', fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <Info size={14} color="var(--primary)" />
+          <span>La dispersión histórica corresponde a la diferencia entre el docente con mayor y menor promedio en este curso ({spread.toFixed(2)}). Haz clic en una barra para ver la ficha del docente.</span>
+        </div>
+      </div>
+    );
   }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // CASO 2: VISTA POR CICLO ESPECÍFICO (Secciones del curso en el ciclo)
+  // ══════════════════════════════════════════════════════════════════════════════
+  if (!varianceData || varianceData.length === 0) {
+    return (
+      <div className="card mt-4">
+        <h3 className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Layers size={20} color="var(--primary)" />
+          Varianza entre Secciones: <span className="text-gradient" style={{ fontWeight: 800 }}>{courseName}</span>
+        </h3>
+        <p className="dashboard-subtitle" style={{ fontSize: '0.85rem' }}>
+          No hay secciones registradas para este curso en el período seleccionado.
+        </p>
+      </div>
+    );
+  }
+
+  const currentVariance = varianceData[0];
+  const { promedioCurso, spread, isHighDispersion, hasValidSections, secciones } = currentVariance;
+
+  // Se muestra solo la letra de la sección (ej. "K — Torres Suarez Rolando Martin")
+  const chartData = secciones.map(sec => ({
+    ...sec,
+    label: `${sec.sectionLabel} — ${sec.professor}`,
+    puntaje: sec.promedioSeccion,
+  }));
 
   return (
     <div className="card mt-4">
+      {/* Header con foco en el curso */}
       <div className="flex-between mb-3" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
           <h3 className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-            <Layers size={18} color="var(--primary)" />
-            Varianza entre Secciones — <span style={{ color: 'var(--text-secondary)' }}>{courseName}</span>
+            <Layers size={20} color="var(--primary)" />
+            Varianza entre Secciones: <span className="text-gradient" style={{ fontWeight: 800 }}>{courseName}</span>
           </h3>
-          <p className="dashboard-subtitle" style={{ fontSize: '0.85rem', margin: 0 }}>
-            Comparación del puntaje docente entre secciones válidas (≥55% participación) para identificar disparidades.
+          <p className="dashboard-subtitle" style={{ fontSize: '0.82rem', margin: 0 }}>
+            Comparación horizontal del desempeño docente respecto a la media del curso
           </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {hasValidSections && (
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Promedio del curso: <strong style={{ color: 'var(--primary)' }}>{promedioCurso.toFixed(2)}</strong>
+            </span>
+          )}
+          {secciones.filter(s => s.isValid).length > 1 && (
+            isHighDispersion ? (
+              <span
+                className="badge badge-warning"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  fontSize: '0.75rem',
+                  padding: '4px 8px',
+                  backgroundColor: 'var(--rea-rojo-claro)',
+                  color: 'var(--rea-naranja-intenso)',
+                  fontWeight: 600
+                }}
+                title="Diferencia máxima entre secciones ≥ 0.5 puntos"
+              >
+                <AlertTriangle size={14} />
+                Dispersión Alta: {spread.toFixed(2)}
+              </span>
+            ) : (
+              <span
+                className="badge badge-success"
+                style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                title="Diferencia máxima entre secciones < 0.5 puntos"
+              >
+                Dispersión Baja: {spread.toFixed(2)}
+              </span>
+            )
+          )}
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
-        {varianceData.map((cycleVariance) => {
-          if (cycleVariance.secciones.length <= 1) {
-            return null;
-          }
-
-          const { ciclo, promedioCurso, spread, isHighDispersion, secciones } = cycleVariance;
-
-          return (
-            <div
-              key={ciclo}
-              style={{
-                border: '1px solid var(--border-color)',
-                borderRadius: '8px',
-                padding: '1rem',
-                backgroundColor: 'rgba(255, 255, 255, 0.4)'
+      {/* Gráfico Horizontal de Barras */}
+      <div style={{ width: '100%', minHeight: '240px', marginTop: '1rem' }}>
+        <ResponsiveContainer width="100%" height={Math.max(240, chartData.length * 52)}>
+          <BarChart
+            layout="vertical"
+            data={chartData}
+            margin={{ top: 20, right: 65, left: 15, bottom: 5 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border-color)" />
+            <XAxis
+              type="number"
+              domain={[0, 5]}
+              ticks={[0, 1, 2, 3, 4, 5]}
+              tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
+            />
+            <YAxis
+              type="category"
+              dataKey="label"
+              width={180}
+              tick={{ fill: 'var(--text-primary)', fontSize: 12, fontWeight: 600 }}
+            />
+            <RechartsTooltip
+              content={<CustomChartTooltip promedioCurso={promedioCurso} />}
+              cursor={{ fill: 'rgba(32, 78, 207, 0.04)' }}
+            />
+            {hasValidSections && (
+              <ReferenceLine
+                x={promedioCurso}
+                stroke="var(--primary)"
+                strokeDasharray="4 4"
+                strokeWidth={2}
+                label={{
+                  value: `Media: ${promedioCurso.toFixed(2)}`,
+                  position: 'top',
+                  fill: 'var(--primary)',
+                  fontSize: 11,
+                  fontWeight: 700
+                }}
+              />
+            )}
+            <Bar
+              dataKey="puntaje"
+              radius={[0, 6, 6, 0]}
+              barSize={24}
+              style={{ cursor: onSelectProfessor ? 'pointer' : 'default' }}
+              onClick={(entry: any) => {
+                if (entry && entry.professor) {
+                  onSelectProfessor?.(entry.professor);
+                }
               }}
             >
-              {/* Header per ciclo */}
-              <div className="flex-between" style={{ alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                    Ciclo {ciclo}
-                  </span>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    Promedio del curso:{' '}
-                    <strong style={{ color: 'var(--primary)' }}>{promedioCurso.toFixed(2)}</strong>
-                  </span>
-                </div>
+              {chartData.map((entry, index) => {
+                let fill = '#cbd5e1';
+                if (entry.isValid && hasValidSections) {
+                  fill = entry.delta >= 0 ? 'var(--rea-turquesa)' : 'var(--rea-naranja-intenso)';
+                }
+                return <Cell key={`cell-${index}`} fill={fill} />;
+              })}
+              <LabelList
+                dataKey="puntaje"
+                position="right"
+                formatter={(val: any) => typeof val === 'number' ? val.toFixed(2) : val}
+                style={{ fill: 'var(--text-primary)', fontSize: 12, fontWeight: 700 }}
+              />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  {isHighDispersion ? (
-                    <span
-                      className="badge badge-warning"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        fontSize: '0.75rem',
-                        padding: '4px 8px',
-                        backgroundColor: 'var(--rea-rojo-claro)',
-                        color: 'var(--rea-naranja-intenso)',
-                        fontWeight: 600
-                      }}
-                    >
-                      <AlertTriangle size={14} />
-                      Dispersión Alta: {spread.toFixed(2)}
-                    </span>
-                  ) : (
-                    <span
-                      className="badge badge-success"
-                      style={{ fontSize: '0.75rem', padding: '4px 8px' }}
-                    >
-                      Dispersión Baja: {spread.toFixed(2)}
-                    </span>
-                  )}
-                </div>
-              </div>
+      {/* Leyenda del gráfico */}
+      <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', marginTop: '1rem', fontSize: '0.82rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+        <div className="flex-center" style={{ gap: '0.4rem' }}>
+          <div style={{ width: 12, height: 12, backgroundColor: 'var(--rea-turquesa)', borderRadius: 3 }}></div> Sobre la media del curso
+        </div>
+        <div className="flex-center" style={{ gap: '0.4rem' }}>
+          <div style={{ width: 12, height: 12, backgroundColor: 'var(--rea-naranja-intenso)', borderRadius: 3 }}></div> Bajo la media del curso
+        </div>
+        <div className="flex-center" style={{ gap: '0.4rem' }}>
+          <div style={{ width: 12, height: 12, backgroundColor: '#cbd5e1', borderRadius: 3 }}></div> Baja Cobertura
+        </div>
+      </div>
 
-              {/* Rows per section */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                {secciones.map((sec) => {
-                  const tier = getTier(sec.promedioSeccion);
-                  const isPositive = sec.delta >= 0;
-                  const deltaColor = isPositive ? 'var(--rea-turquesa)' : 'var(--rea-naranja-intenso)';
-                  const formattedDelta = `${isPositive ? '+' : ''}${sec.delta.toFixed(2)}`;
-                  const baselinePct = (promedioCurso / 5) * 100;
-                  const fillPct = (sec.promedioSeccion / 5) * 100;
-
-                  return (
-                    <div
-                      key={sec.section}
-                      className="ranking-item"
-                      style={{
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: '6px',
-                        backgroundColor: 'var(--bg-secondary, #fafbfc)',
-                        border: '1px solid var(--border-color)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.75rem'
-                      }}
-                    >
-                      {/* Section indicator */}
-                      <div
-                        className="ranking-position normal"
-                        style={{
-                          width: '28px',
-                          height: '28px',
-                          fontSize: '0.85rem',
-                          background: tier.bg,
-                          color: tier.color,
-                          border: `1px solid ${tier.color}`,
-                          fontWeight: 700
-                        }}
-                      >
-                        {sec.sectionLabel}
-                      </div>
-
-                      {/* Professor & metadata */}
-                      <div style={{ flex: '1 1 200px', minWidth: '150px' }}>
-                        <div style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
-                          {sec.professor}
-                        </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                          Participación: {(sec.coverage * 100).toFixed(0)}%
-                        </div>
-                      </div>
-
-                      {/* Bar + Course Baseline Guideline */}
-                      <div
-                        className="ranking-bar-bg"
-                        style={{
-                          flex: '2 1 220px',
-                          position: 'relative',
-                          height: '14px',
-                          borderRadius: '7px',
-                          background: '#e5e7eb',
-                          overflow: 'visible'
-                        }}
-                      >
-                        {/* Section Score Bar */}
-                        <div
-                          className="ranking-bar-fill"
-                          style={{
-                            width: `${fillPct}%`,
-                            background: `linear-gradient(90deg, ${tier.color}aa, ${tier.color})`,
-                            height: '100%',
-                            borderRadius: '7px'
-                          }}
-                        />
-
-                        {/* Baseline indicator */}
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: `${baselinePct}%`,
-                            top: '-4px',
-                            bottom: '-4px',
-                            width: '2px',
-                            backgroundColor: 'var(--text-primary)',
-                            zIndex: 2,
-                            borderRadius: '1px'
-                          }}
-                          title={`Promedio Curso: ${promedioCurso.toFixed(2)}`}
-                        />
-                      </div>
-
-                      {/* Section Score & Delta */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'flex-end',
-                          minWidth: '70px',
-                          textAlign: 'right'
-                        }}
-                      >
-                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: tier.color }}>
-                          {sec.promedioSeccion.toFixed(2)}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            color: deltaColor
-                          }}
-                        >
-                          ({formattedDelta})
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+      {/* Footer explicativo */}
+      <div style={{ marginTop: '1.25rem', fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+        <Info size={14} color="var(--primary)" />
+        <span>La dispersión es la brecha entre la sección con mayor y menor puntaje ({spread.toFixed(2)}). Si es ≥ 0.50 se considera alta disparidad. Haz clic en una barra para ver la ficha del docente.</span>
       </div>
     </div>
   );

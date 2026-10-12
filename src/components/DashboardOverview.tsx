@@ -6,7 +6,9 @@ import ProfessorsScatterPlot from './ProfessorsScatterPlot';
 
 interface Props {
   data: SurveyRecord[];
+  allDaData?: SurveyRecord[];
   daName: string;
+  onSelectProfessor?: (profName: string) => void;
 }
 
 const MEDAL_CLASSES = ['gold', 'silver', 'bronze', 'normal', 'normal'];
@@ -21,18 +23,18 @@ function getTier(score: number): Tier {
   return              { label: 'En Riesgo',           color: 'var(--rea-naranja-intenso)', bg: 'rgba(242,103,73,0.12)' };
 }
 
-const DashboardOverview: React.FC<Props> = ({ data, daName }) => {
-  // ═══ Unificación: secciones evaluables (válidas por >=55% O secciones no atípicas) ═══
-  const validData = data.filter(d => !(d.isOutlier && !d.isValid));
+const DashboardOverview: React.FC<Props> = ({ data, allDaData, daName, onSelectProfessor }) => {
+  // ═══ Exclusivamente secciones con cobertura >= 55% para representatividad estadística ═══
+  const strictlyValidData = data.filter(d => d.isValid);
 
   const totalCourses = new Set(data.map(d => d.courseName)).size;
   const totalProfessors = new Set(data.map(d => d.professor)).size;
   const totalSections = data.length;
   const avgParticipation = data.length > 0 ? mean(data.map(d => d.coverage)) * 100 : 0;
 
-  // ═══ Agrupación por Docente (usando secciones evaluables) ═══
+  // ═══ Agrupación por Docente (solo secciones válidas >= 55%) ═══
   const profMap = new Map<string, number[]>();
-  validData.forEach(d => {
+  strictlyValidData.forEach(d => {
     if (!profMap.has(d.professor)) profMap.set(d.professor, []);
     profMap.get(d.professor)!.push(d.puntajeProfesor);
   });
@@ -43,7 +45,7 @@ const DashboardOverview: React.FC<Props> = ({ data, daName }) => {
     sections: scores.length
   })).sort((a, b) => b.score - a.score);
 
-  // Puntaje Global Docente: Benchmark Institucional Departamental (Media DA + Mediana DA) / 2
+  // Puntaje Promedio Docente (Línea Base Institucional Departamental): (Media DA + Mediana DA) / 2
   const globalDocenteScore = useMemo(() => {
     if (data.length === 0) return 0;
     const totalResp = data.reduce((sum, d) => sum + d.responses, 0);
@@ -62,7 +64,7 @@ const DashboardOverview: React.FC<Props> = ({ data, daName }) => {
     .filter(p => p.score < daAvg)
     .sort((a, b) => a.score - b.score); // mayor brecha primero (menor puntaje)
 
-  // ═══ Top 5 Docentes General del Departamento ═══
+  // ═══ Top 5 Docentes General del Departamento (solo secciones válidas >= 55%) ═══
   const top5Docentes = useMemo(() => {
     return profScores.slice(0, 5);
   }, [profScores]);
@@ -71,7 +73,7 @@ const DashboardOverview: React.FC<Props> = ({ data, daName }) => {
     <div className="animate-fade-in">
       <div className="dashboard-header">
         <h2 className="dashboard-title">Vista General — <span className="text-gradient">{daName}</span></h2>
-        <p className="dashboard-subtitle">Métricas principales de las evaluaciones docentes (solo categoría Profesores)</p>
+        <p className="dashboard-subtitle">Métricas principales de las evaluaciones docentes</p>
       </div>
 
       {/* ═══ Stats Cards ═══ */}
@@ -102,7 +104,7 @@ const DashboardOverview: React.FC<Props> = ({ data, daName }) => {
           <div className="stat-icon" style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}>
             <TrendingUp size={22} />
           </div>
-          <div className="stat-title" style={{ color: 'rgba(255,255,255,0.85)' }}>Puntaje Global Docente</div>
+          <div className="stat-title" style={{ color: 'rgba(255,255,255,0.85)' }}>Puntaje Promedio Docente</div>
           <div className="stat-value" style={{ color: 'white' }}>
             {globalDocenteScore.toFixed(2)} <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>/ 5.0</span>
           </div>
@@ -114,7 +116,7 @@ const DashboardOverview: React.FC<Props> = ({ data, daName }) => {
 
       {/* ═══ Rankings ═══ */}
       <div className="charts-grid" style={{ gridTemplateColumns: '1fr' }}>
-        {/* Top 5 por Curso */}
+        {/* Top 5 General */}
         <div className="card chart-container">
           <h3 className="chart-title">
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -123,22 +125,28 @@ const DashboardOverview: React.FC<Props> = ({ data, daName }) => {
             </span>
           </h3>
           <p className="dashboard-subtitle" style={{ fontSize: '0.8rem', marginBottom: '1rem', marginTop: '-0.5rem' }}>
-            Mejores profesores evaluados en <strong>{daName}</strong> (secciones válidas ≥ 55%)
+            Mejores profesores evaluados en <strong>{daName}</strong> con participación ≥ 55%
           </p>
 
           {top5Docentes.length === 0 ? (
             <div className="flex-center" style={{ height: '140px', color: 'var(--text-muted)' }}>
-              No hay datos válidos para el período seleccionado
+              No hay docentes con secciones representativas para el período seleccionado
             </div>
           ) : (
             <div className="ranking-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem' }}>
               {top5Docentes.map((prof, idx) => (
-                <div className="ranking-item" key={prof.name}>
+                <div 
+                  className="ranking-item" 
+                  key={prof.name}
+                  onClick={() => onSelectProfessor?.(prof.name)}
+                  style={{ cursor: onSelectProfessor ? 'pointer' : 'default' }}
+                  title="Clic para ver ficha de Desempeño Docente"
+                >
                   <div className={`ranking-position ${MEDAL_CLASSES[idx] || 'normal'}`}>{idx + 1}</div>
                   <div className="ranking-name">
                     {prof.name}
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400 }}>
-                      {prof.sections} {prof.sections === 1 ? 'sección' : 'secciones'}
+                      {prof.sections} {prof.sections === 1 ? 'sección válida' : 'secciones válidas'}
                     </div>
                   </div>
                   <div className="ranking-bar-bg">
@@ -155,8 +163,12 @@ const DashboardOverview: React.FC<Props> = ({ data, daName }) => {
         </div>
       </div>
 
-      {/* ═══ Dispersión: Volumen de Estudiantes vs Puntaje Docente ═══ */}
-      <ProfessorsScatterPlot data={data} daName={daName} />
+      {/* ═══ Dispersión: Frecuencia de Secciones Válidas vs Puntaje Promedio ═══ */}
+      <ProfessorsScatterPlot 
+        data={allDaData && allDaData.length > 0 ? allDaData : data} 
+        daName={daName} 
+        onSelectProfessor={onSelectProfessor}
+      />
 
       {/* ═══ Docentes Bajo el Promedio ═══ */}
       {belowAvg.length > 0 && (
@@ -172,14 +184,20 @@ const DashboardOverview: React.FC<Props> = ({ data, daName }) => {
             </span>
           </h3>
           <p className="dashboard-subtitle" style={{ fontSize: '0.8rem', marginBottom: '1.25rem', marginTop: '-0.5rem' }}>
-            Docentes con puntaje por debajo del promedio del DA ({daAvg.toFixed(2)}), ordenados de mayor a menor diferencia con respecto al promedio.
+            Docentes con puntaje por debajo del promedio institucional {daAvg.toFixed(2)}, ordenados de mayor a menor diferencia
           </p>
           <div className="ranking-list">
             {belowAvg.map((prof, idx) => {
               const tier = getTier(prof.score);
               const delta = prof.score - daAvg;
               return (
-                <div className="ranking-item" key={prof.name}>
+                <div 
+                  className="ranking-item" 
+                  key={prof.name}
+                  onClick={() => onSelectProfessor?.(prof.name)}
+                  style={{ cursor: onSelectProfessor ? 'pointer' : 'default' }}
+                  title="Clic para ver ficha de Desempeño Docente"
+                >
                   <div
                     className="ranking-position normal"
                     style={{ background: tier.bg, color: tier.color, border: `1px solid ${tier.color}`, fontWeight: 700 }}
@@ -196,7 +214,7 @@ const DashboardOverview: React.FC<Props> = ({ data, daName }) => {
                         {tier.label}
                       </span>
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        {prof.sections} {prof.sections === 1 ? 'sección' : 'secciones'}
+                        {prof.sections} {prof.sections === 1 ? 'sección válida' : 'secciones válidas'}
                       </span>
                     </div>
                   </div>

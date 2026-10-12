@@ -18,6 +18,7 @@ import { getTier } from '../utils/sectionVariance';
 interface Props {
   data: SurveyRecord[];
   daName: string;
+  onSelectProfessor?: (profName: string) => void;
 }
 
 interface CustomTooltipProps {
@@ -31,9 +32,6 @@ const CustomScatterTooltip: React.FC<CustomTooltipProps> = ({ active, payload })
   if (!active || !payload || !payload.length) return null;
   const p = payload[0].payload;
   const tier = getTier(p.promedio);
-  const respPct = p.totalMatriculados > 0
-    ? ((p.totalEstudiantes / p.totalMatriculados) * 100).toFixed(0)
-    : '0';
 
   return (
     <div
@@ -72,56 +70,51 @@ const CustomScatterTooltip: React.FC<CustomTooltipProps> = ({ active, payload })
 
       <div style={{ borderTop: '1px solid var(--border-color, #dde3f7)', paddingTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
         <div>
-          <strong style={{ color: 'var(--text-secondary)' }}>Alumnos Matriculados:</strong>{' '}
-          <span style={{ fontWeight: 700, color: 'var(--primary)' }}>{p.totalMatriculados}</span>
+          <strong style={{ color: 'var(--text-secondary)' }}>Veces con ≥ 55%:</strong>{' '}
+          <span style={{ fontWeight: 700, color: 'var(--primary)' }}>{p.veces55}</span> de {p.totalSecciones} {p.totalSecciones === 1 ? 'sección' : 'secciones'}
         </div>
         <div>
-          <strong style={{ color: 'var(--text-secondary)' }}>Respuestas a Encuesta:</strong>{' '}
-          <span>{p.totalEstudiantes}</span> ({respPct}% participación)
-        </div>
-        <div>
-          <strong style={{ color: 'var(--text-secondary)' }}>Secciones válidas:</strong>{' '}
-          <span style={{ fontWeight: 600 }}>{p.seccionesCount}</span>
-        </div>
-        <div>
-          <strong style={{ color: 'var(--text-secondary)' }}>Cursos ({p.cursos.length}):</strong>{' '}
+          <strong style={{ color: 'var(--text-secondary)' }}>Cursos evaluados:</strong>{' '}
           <span style={{ color: 'var(--text-muted)' }}>{p.cursos.join(', ')}</span>
+        </div>
+        <div style={{ fontSize: '0.72rem', color: 'var(--primary)', marginTop: '4px', fontStyle: 'italic' }}>
+          Clic para ver ficha del docente →
         </div>
       </div>
     </div>
   );
 };
 
-export const ProfessorsScatterPlot: React.FC<Props> = ({ data, daName }) => {
+export const ProfessorsScatterPlot: React.FC<Props> = ({ data, daName, onSelectProfessor }) => {
   const result = useMemo(() => aggregateProfessorsScatter(data), [data]);
-  const { points, avgScore, medianStudents, yMin, yTicks } = result;
+  const { points, avgScore, medianVeces, yMin, yTicks, xTicks } = result;
 
-  // Quadrant distribution count (based on enrolled student volume and professor score)
+  // Quadrant distribution count (based on valid sections frequency and professor score)
   const quadrants = useMemo(() => {
-    let q1 = 0; // High Volume, High Score
-    let q2 = 0; // Low Volume, High Score
-    let q3 = 0; // Low Volume, Low Score
-    let q4 = 0; // High Volume, Low Score
+    let q1 = 0; // High Freq, High Score
+    let q2 = 0; // Low Freq, High Score
+    let q3 = 0; // Low Freq, Low Score
+    let q4 = 0; // High Freq, Low Score
 
     points.forEach(p => {
-      const isHighVol = p.totalMatriculados >= medianStudents;
+      const isHighFreq = p.veces55 >= medianVeces;
       const isHighScore = p.promedio >= avgScore;
 
-      if (isHighVol && isHighScore) q1++;
-      else if (!isHighVol && isHighScore) q2++;
-      else if (!isHighVol && !isHighScore) q3++;
+      if (isHighFreq && isHighScore) q1++;
+      else if (!isHighFreq && isHighScore) q2++;
+      else if (!isHighFreq && !isHighScore) q3++;
       else q4++;
     });
 
     return { q1, q2, q3, q4 };
-  }, [points, avgScore, medianStudents]);
+  }, [points, avgScore, medianVeces]);
 
   if (points.length === 0) {
     return (
       <div className="card mt-4">
-        <h3 className="chart-title">Volumen de Alumnos vs. Desempeño Docente</h3>
+        <h3 className="chart-title">Frecuencia de Secciones Válidas ≥ 55% vs. Puntaje Promedio</h3>
         <p className="dashboard-subtitle" style={{ fontSize: '0.85rem' }}>
-          No hay docentes con secciones válidas (≥ 55% participación) para mostrar en este período.
+          No hay docentes con secciones válidas para mostrar en el histórico.
         </p>
       </div>
     );
@@ -133,10 +126,10 @@ export const ProfessorsScatterPlot: React.FC<Props> = ({ data, daName }) => {
         <div>
           <h3 className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
             <Users size={18} color="var(--primary)" />
-            Relación: Total de Matriculados vs. Puntaje Docente
+            Frecuencia de Secciones Válidas ≥ 55% vs. Puntaje Promedio
           </h3>
           <p className="dashboard-subtitle" style={{ fontSize: '0.82rem', margin: 0 }}>
-            Matriculados vs. puntaje docente en <strong>{daName}</strong> (secciones válidas ≥ 55%).
+            Histórico en <strong>{daName}</strong>: cantidad de veces que alcanzó el umbral ≥ 55% vs. puntaje promedio
           </p>
         </div>
 
@@ -154,9 +147,9 @@ export const ProfessorsScatterPlot: React.FC<Props> = ({ data, daName }) => {
               alignItems: 'center',
               gap: '4px'
             }}
-            title="Alta matrícula y alto puntaje"
+            title="Alta frecuencia de representatividad y alto puntaje"
           >
-            <Award size={12} /> Alta Matrícula / Alto Score: {quadrants.q1}
+            <Award size={12} /> Alta Frecuencia / Alto Score: {quadrants.q1}
           </span>
           <span
             style={{
@@ -170,9 +163,9 @@ export const ProfessorsScatterPlot: React.FC<Props> = ({ data, daName }) => {
               alignItems: 'center',
               gap: '4px'
             }}
-            title="Alta matrícula y bajo puntaje"
+            title="Alta frecuencia de representatividad y bajo puntaje"
           >
-            <AlertCircle size={12} /> Alta Matrícula / Bajo Score: {quadrants.q4}
+            <AlertCircle size={12} /> Alta Frecuencia / Bajo Score: {quadrants.q4}
           </span>
         </div>
       </div>
@@ -185,11 +178,13 @@ export const ProfessorsScatterPlot: React.FC<Props> = ({ data, daName }) => {
 
             <XAxis
               type="number"
-              dataKey="totalMatriculados"
-              name="Estudiantes Matriculados"
+              dataKey="veces55"
+              name="Veces ≥ 55%"
+              ticks={xTicks}
+              allowDecimals={false}
               tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
               label={{
-                value: 'Total de Estudiantes Matriculados (Base de Datos)',
+                value: 'Cantidad de Veces que Alcanzó el 55% de Participación',
                 position: 'insideBottom',
                 offset: -12,
                 fill: 'var(--text-secondary)',
@@ -200,7 +195,7 @@ export const ProfessorsScatterPlot: React.FC<Props> = ({ data, daName }) => {
             <YAxis
               type="number"
               dataKey="promedio"
-              name="Puntaje Docente"
+              name="Puntaje Promedio"
               domain={[yMin, 5]}
               ticks={yTicks}
               tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
@@ -231,14 +226,14 @@ export const ProfessorsScatterPlot: React.FC<Props> = ({ data, daName }) => {
               }}
             />
 
-            {/* Reference vertical line: Median enrolled student volume */}
+            {/* Reference vertical line: Median times reaching 55% */}
             <ReferenceLine
-              x={medianStudents}
+              x={medianVeces}
               stroke="var(--rea-goldenrod)"
               strokeDasharray="4 4"
               strokeWidth={1.5}
               label={{
-                value: `Mediana matriculados: ${medianStudents}`,
+                value: `Mediana: ${medianVeces} ${medianVeces === 1 ? 'vez' : 'veces'}`,
                 position: 'insideTopRight',
                 fill: 'var(--rea-goldenrod)',
                 fontSize: 11,
@@ -246,7 +241,16 @@ export const ProfessorsScatterPlot: React.FC<Props> = ({ data, daName }) => {
               }}
             />
 
-            <Scatter name="Docentes" data={points}>
+            <Scatter
+              name="Docentes"
+              data={points}
+              onClick={(node: any) => {
+                if (node && node.professor && onSelectProfessor) {
+                  onSelectProfessor(node.professor);
+                }
+              }}
+              style={{ cursor: onSelectProfessor ? 'pointer' : 'default' }}
+            >
               {points.map((p, index) => {
                 const tier = getTier(p.promedio);
                 return (
@@ -284,14 +288,14 @@ export const ProfessorsScatterPlot: React.FC<Props> = ({ data, daName }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
           <Info size={15} color="var(--primary)" />
           <span>
-            <strong>Línea azul:</strong> Promedio del DA (<strong>{avgScore.toFixed(2)}</strong>) |{' '}
-            <strong>Línea dorada:</strong> Mediana de matriculados (<strong>{medianStudents}</strong>)
+            <strong>Línea azul:</strong> Promedio DA <strong>{avgScore.toFixed(2)}</strong> |{' '}
+            <strong>Línea dorada:</strong> Mediana de veces ≥ 55% <strong>{medianVeces}</strong>
           </span>
         </div>
 
         <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)' }}>
           <span>Docentes analizados: <strong style={{ color: 'var(--text-primary)' }}>{points.length}</strong></span>
-          <span>Alta matrícula + Alto score: <strong style={{ color: 'var(--rea-turquesa)' }}>{quadrants.q1}</strong></span>
+          <span>Alta frecuencia + Alto score: <strong style={{ color: 'var(--rea-turquesa)' }}>{quadrants.q1}</strong></span>
         </div>
       </div>
     </div>

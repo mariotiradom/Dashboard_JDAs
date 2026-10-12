@@ -8,6 +8,7 @@ import CourseView from './components/CourseView';
 import AccessGate from './components/AccessGate';
 import SplashScreen from './components/SplashScreen';
 import type { DepartamentoAcademico } from './config/daConfig';
+import { isCicloBeforeOrEqual } from './utils/cycles';
 
 function App() {
   const [activeTab, setActiveTab] = useState<'overview' | 'professors' | 'courses'>('overview');
@@ -15,6 +16,12 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [authenticatedDA, setAuthenticatedDA] = useState<DepartamentoAcademico | null>(null);
   const [selectedCiclo, setSelectedCiclo] = useState<string>('');
+  const [selectedProfessor, setSelectedProfessor] = useState<string>('');
+
+  const handleSelectProfessor = (profName: string) => {
+    setSelectedProfessor(profName);
+    setActiveTab('professors');
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -45,6 +52,9 @@ function App() {
   const availableCiclos = allCycles.slice(0, 4);
 
   const activeCiclo = selectedCiclo || (availableCiclos[0] || '');
+
+  // Datos retrospectivos para el departamento (solo ciclos <= ciclo seleccionado)
+  const retrospectiveDaData = daData.filter(d => isCicloBeforeOrEqual(d.ciclo, activeCiclo));
 
   const filteredData = activeCiclo === 'Histórico' 
     ? daData 
@@ -83,13 +93,41 @@ function App() {
 
     switch (activeTab) {
       case 'overview':
-        return <DashboardOverview data={filteredData} daName={authenticatedDA.name} />;
+        return (
+          <DashboardOverview 
+            data={filteredData} 
+            allDaData={retrospectiveDaData} 
+            daName={authenticatedDA.name} 
+            onSelectProfessor={handleSelectProfessor} 
+          />
+        );
       case 'professors':
-        return <ProfessorView data={filteredData} availableCiclos={availableCiclos} />;
+        return (
+          <ProfessorView 
+            data={filteredData} 
+            availableCiclos={availableCiclos} 
+            initialProfessor={selectedProfessor} 
+            activeCiclo={activeCiclo}
+          />
+        );
       case 'courses':
-        return <CourseView data={filteredData} availableCiclos={availableCiclos} />;
+        return (
+          <CourseView 
+            data={filteredData} 
+            availableCiclos={availableCiclos} 
+            activeCiclo={activeCiclo} 
+            onSelectProfessor={handleSelectProfessor} 
+          />
+        );
       default:
-        return <DashboardOverview data={filteredData} daName={authenticatedDA.name} />;
+        return (
+          <DashboardOverview 
+            data={filteredData} 
+            allDaData={retrospectiveDaData} 
+            daName={authenticatedDA.name} 
+            onSelectProfessor={handleSelectProfessor} 
+          />
+        );
     }
   };
 
@@ -151,7 +189,7 @@ function App() {
               style={{ padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem', backgroundColor: 'var(--bg-color)' }}
             >
               {availableCiclos.length > 0 && (
-                <option value={availableCiclos[0]}>Ciclo actual ({availableCiclos[0]})</option>
+                <option value={availableCiclos[0]}>Ciclo actual {availableCiclos[0]}</option>
               )}
               {availableCiclos.slice(1).map(c => (
                 <option key={c} value={c}>{c}</option>

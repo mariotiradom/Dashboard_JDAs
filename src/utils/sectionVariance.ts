@@ -26,31 +26,31 @@ export interface SectionStat {
   /** promedioSeccion − promedioCurso */
   delta: number;
   coverage: number;
+  isValid: boolean;
 }
 
 export interface CourseVariance {
   ciclo: string;
   promedioCurso: number;
-  /** max(promedioSeccion) − min(promedioSeccion) */
+  /** max(promedioSeccion) − min(promedioSeccion) among valid sections */
   spread: number;
   isHighDispersion: boolean;
-  /** Sorted by promedioSeccion descending */
+  hasValidSections: boolean;
+  /** Sorted: valid sections first by promedioSeccion desc, then low coverage */
   secciones: SectionStat[];
 }
 
 // ── Aggregation ───────────────────────────────────────────────────────────────
 /**
  * Given all SurveyRecord rows for a single course, compute per-ciclo section
- * variance. Only valid sections (coverage >= 55%) are included.
- * Ciclos with fewer than 2 valid sections are skipped entirely.
+ * variance. Includes all sections, flagging low coverage (< 55%) as isValid = false.
  */
 export function computeSectionVariance(records: SurveyRecord[]): CourseVariance[] {
-  // Filter to valid sections only
-  const valid = records.filter(r => r.isValid);
+  if (!records || records.length === 0) return [];
 
   // Group by ciclo
   const byCiclo = new Map<string, SurveyRecord[]>();
-  valid.forEach(r => {
+  records.forEach(r => {
     if (!byCiclo.has(r.ciclo)) byCiclo.set(r.ciclo, []);
     byCiclo.get(r.ciclo)!.push(r);
   });
@@ -58,27 +58,124 @@ export function computeSectionVariance(records: SurveyRecord[]): CourseVariance[
   const result: CourseVariance[] = [];
 
   for (const [ciclo, rows] of byCiclo.entries()) {
-    if (rows.length <= 1) continue; // nothing to compare
-
-    const scores = rows.map(r => r.puntajeProfesor);
-    const promedioCurso = mean(scores);
-    const spread = Math.max(...scores) - Math.min(...scores);
+    const validRows = rows.filter(r => r.isValid);
+    const validScores = validRows.map(r => r.puntajeProfesor);
+    const hasValidSections = validScores.length > 0;
+    const promedioCurso = hasValidSections ? Number(mean(validScores).toFixed(2)) : 0;
+    const spread = validScores.length > 1
+      ? Number((Math.max(...validScores) - Math.min(...validScores)).toFixed(2))
+      : 0;
 
     const secciones: SectionStat[] = rows
-      .map(r => ({
-        section:        r.section,
-        sectionLabel:   r.section.split(' ')[0], // "A [26-2]" → "A"
-        professor:      r.professor,
-        promedioSeccion: r.puntajeProfesor,
-        delta:          r.puntajeProfesor - promedioCurso,
-        coverage:       r.coverage,
-      }))
-      .sort((a, b) => b.promedioSeccion - a.promedioSeccion);
+      .map(r => {
+        // Remove brackets/parens from section if any, e.g. "A [26-2]" -> "A"
+        const cleanLabel = r.section.replace(/[[\]()]/g, '').trim().split(' ')[0] || r.section;
+        const delta = (r.isValid && promedioCurso > 0)
+          ? Number((r.puntajeProfesor - promedioCurso).toFixed(2))
+          : 0;
 
-    result.push({ ciclo, promedioCurso, spread, isHighDispersion: spread >= 0.5, secciones });
+        return {
+          section:        r.section,
+          sectionLabel:   cleanLabel,
+          professor:      r.professor,
+          promedioSeccion: Number(r.puntajeProfesor.toFixed(2)),
+          delta,
+          coverage:       r.coverage,
+          isValid:        r.isValid,
+        };
+      })
+      .sort((a, b) => {
+        if (a.isValid && !b.isValid) return -1;
+        if (!a.isValid && b.isValid) return 1;
+        return b.promedioSeccion - a.promedioSeccion;
+      });
+
+    result.push({
+      ciclo,
+      promedioCurso,
+      spread,
+      isHighDispersion: spread >= 0.5,
+      hasValidSections,
+      secciones
+    });
   }
 
   // Newest ciclo first
   return result.sort((a, b) => b.ciclo.localeCompare(a.ciclo));
+}
+
+// ── Historical Aggregation per Professor ─────────────────────────────────────
+export interface ProfessorHistoricalStat {
+  professor: string;
+  promedioDocente: number;
+  delta: number; // promedioDocente - promedioCurso
+  sectionsCount: number;
+  validSectionsCount: number;
+  avgCoverage: number;
+  isValid: boolean;
+}
+
+export interface HistoricalCourseVariance {
+  promedioCurso: number;
+  spread: number;
+  isHighDispersion: boolean;
+  hasValidSections: boolean;
+  docentes: ProfessorHistoricalStat[];
+}
+
+export function computeHistoricalCourseVariance(records: SurveyRecord[]): HistoricalCourseVariance | null {
+  if (!records || records.length === 0) return null;
+
+  const validRecords = records.filter(r => r.isValid);
+  const hasValidSections = validRecords.length > 0;
+  const promedioCurso = hasValidSections
+    ? Number(mean(validRecords.map(r => r.puntajeProfesor)).toFixed(2))
+    : 0;
+
+  const profMap = new Map<string, SurveyRecord[]>();
+  records.forEach(r => {
+    if (!profMap.has(r.professor)) profMap.set(r.professor, []);
+    profMap.get(r.professor)!.push(r);
+  });
+
+  const docentes: ProfessorHistoricalStat[] = Array.from(profMap.entries()).map(([professor, rows]) => {
+    const validRows = rows.filter(r => r.isValid);
+    const isValid = validRows.length > 0;
+    const scores = isValid
+      ? validRows.map(r => r.puntajeProfesor)
+      : rows.map(r => r.puntajeProfesor);
+    const promedioDocente = Number(mean(scores).toFixed(2));
+    const delta = (isValid && promedioCurso > 0)
+      ? Number((promedioDocente - promedioCurso).toFixed(2))
+      : 0;
+    const avgCoverage = mean(rows.map(r => r.coverage));
+
+    return {
+      professor,
+      promedioDocente,
+      delta,
+      sectionsCount: rows.length,
+      validSectionsCount: validRows.length,
+      avgCoverage,
+      isValid
+    };
+  }).sort((a, b) => {
+    if (a.isValid && !b.isValid) return -1;
+    if (!a.isValid && b.isValid) return 1;
+    return b.promedioDocente - a.promedioDocente;
+  });
+
+  const validProfScores = docentes.filter(d => d.isValid).map(d => d.promedioDocente);
+  const spread = validProfScores.length > 1
+    ? Number((Math.max(...validProfScores) - Math.min(...validProfScores)).toFixed(2))
+    : 0;
+
+  return {
+    promedioCurso,
+    spread,
+    isHighDispersion: spread >= 0.5,
+    hasValidSections,
+    docentes
+  };
 }
 

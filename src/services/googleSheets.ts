@@ -1,4 +1,5 @@
-import { detectOutliers } from '../utils/statistics';
+import { mean } from '../utils/statistics';
+import { isCicloBeforeOrEqual } from '../utils/cycles';
 
 export interface SurveyResponseRaw {
   courseCode: string;
@@ -64,14 +65,23 @@ export async function fetchSurveyData(): Promise<SurveyRecord[]> {
     const data: SurveyResponseRaw[] = await response.json();
     const records = data.map(calculateMetrics);
     
-    // Calcular isOutlier por profesor
+    // Calcular isOutlier por profesor de manera retrospectiva (solo ciclos <= ciclo de la sección)
     const profs = Array.from(new Set(records.map(r => r.professor)));
     for (const prof of profs) {
       const profRecords = records.filter(r => r.professor === prof);
-      const scores = profRecords.map(r => r.puntajeProfesor);
-      const outliers = detectOutliers(scores);
-      profRecords.forEach((r, i) => {
-        r.isOutlier = outliers[i];
+      profRecords.forEach(r => {
+        // Histórico retrospectivo: secciones válidas del docente hasta el ciclo actual
+        const historicalRecords = profRecords.filter(
+          other => isCicloBeforeOrEqual(other.ciclo, r.ciclo) && other.isValid
+        );
+
+        if (historicalRecords.length > 0) {
+          const scores = historicalRecords.map(h => h.puntajeProfesor);
+          const retroMean = mean(scores);
+          r.isOutlier = Math.abs(r.puntajeProfesor - retroMean) > 1.0;
+        } else {
+          r.isOutlier = false;
+        }
       });
     }
     

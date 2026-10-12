@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { SurveyRecord } from '../services/googleSheets';
 import { mean } from '../utils/statistics';
-import { computeSectionVariance } from '../utils/sectionVariance';
+import { computeSectionVariance, computeHistoricalCourseVariance } from '../utils/sectionVariance';
 import { BookOpen } from 'lucide-react';
 import SearchBar from './SearchBar';
 import SectionVarianceCard from './SectionVarianceCard';
@@ -9,9 +9,12 @@ import SectionVarianceCard from './SectionVarianceCard';
 interface Props {
   data: SurveyRecord[];
   availableCiclos: string[];
+  activeCiclo?: string;
+  onSelectProfessor?: (profName: string) => void;
 }
 
-const CourseView: React.FC<Props> = ({ data }) => {
+const CourseView: React.FC<Props> = ({ data, activeCiclo, onSelectProfessor }) => {
+  const isHistorical = activeCiclo === 'Histórico';
   const courses = Array.from(new Set(data.map(d => d.courseName))).sort();
   const [selectedCourse, setSelectedCourse] = useState<string>(courses[0] || '');
 
@@ -32,10 +35,17 @@ const CourseView: React.FC<Props> = ({ data }) => {
     return validSections.length > 0 ? Number(mean(validSections.map(d => d.puntajeProfesor)).toFixed(2)) : 0;
   }, [validSections]);
 
-  // Varianza entre secciones para el curso activo
+  // Varianza entre secciones para el curso activo (en ciclo específico)
   const varianceData = useMemo(() => {
+    if (isHistorical) return [];
     return computeSectionVariance(courseData);
-  }, [courseData]);
+  }, [courseData, isHistorical]);
+
+  // Varianza histórica agrupada por docente (en vista histórica)
+  const historicalVariance = useMemo(() => {
+    if (!isHistorical) return null;
+    return computeHistoricalCourseVariance(courseData);
+  }, [courseData, isHistorical]);
 
   // Docentes en secciones válidas
   const profCount = useMemo(() => {
@@ -70,17 +80,17 @@ const CourseView: React.FC<Props> = ({ data }) => {
       {/* Stats Cards */}
       <div className="stats-grid">
         <div className="card stat-card" style={{ borderTop: '4px solid var(--primary)' }}>
-          <div className="stat-title">Promedio General del Curso</div>
+          <div className="stat-title">Puntaje Promedio del Curso</div>
           <div className="stat-value text-gradient">{promedioCurso.toFixed(2)}</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            Línea base (secciones válidas ≥ 55%)
+            Línea base representativa
           </div>
         </div>
         <div className="card stat-card">
           <div className="stat-title">Secciones Evaluadas</div>
           <div className="stat-value">{courseData.length}</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            {validSections.length} válidas (≥ 55% part.)
+            {validSections.length} representativas
           </div>
         </div>
         <div className="card stat-card">
@@ -92,8 +102,14 @@ const CourseView: React.FC<Props> = ({ data }) => {
         </div>
       </div>
 
-      {/* ═══ Varianza entre Secciones ═══ */}
-      <SectionVarianceCard courseName={activeCourse} varianceData={varianceData} />
+      {/* ═══ Varianza entre Secciones / Docentes ═══ */}
+      <SectionVarianceCard 
+        courseName={activeCourse} 
+        varianceData={varianceData}
+        historicalVariance={historicalVariance}
+        isHistorical={isHistorical}
+        onSelectProfessor={onSelectProfessor}
+      />
     </div>
   );
 };

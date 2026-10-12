@@ -3,88 +3,95 @@ import { mean } from './statistics';
 
 export interface ProfessorScatterPoint {
   professor: string;
-  totalEstudiantes: number; // Sum of student responses in valid sections
-  totalMatriculados: number; // Sum of enrolled students in valid sections (from enrollment database)
-  promedio: number; // Average professor score
-  seccionesCount: number;
+  veces55: number; // Cantidad de secciones donde alcanzó >= 55% de participación
+  totalSecciones: number; // Total de secciones dictadas históricamente
+  totalMatriculados: number; // Suma de alumnos matriculados en secciones válidas
+  totalEstudiantes: number; // Suma de respuestas en secciones válidas
+  promedio: number; // Puntaje promedio en las secciones válidas
   cursos: string[];
 }
 
 export interface ScatterAggregationResult {
   points: ProfessorScatterPoint[];
-  avgScore: number; // Department average score
-  medianStudents: number; // Median enrolled count
-  avgStudents: number; // Mean enrolled count
-  minStudents: number;
-  maxStudents: number;
+  avgScore: number; // Department average score across valid sections
+  medianVeces: number; // Median times reaching >= 55%
+  avgVeces: number; // Mean times reaching >= 55%
+  minVeces: number;
+  maxVeces: number;
   minScore: number;
   maxScore: number;
-  yMin: number; // Lower integer floor near the lowest score
-  yTicks: number[]; // Evenly spaced tick marks for Y-axis
+  yMin: number;
+  yTicks: number[];
+  xTicks: number[];
 }
 
 /**
- * Aggregates survey records by professor for scatter plot analysis.
- * Filters out sections below reliability threshold (isValid = false, i.e., coverage < 55%).
+ * Aggregates survey records by professor for historical scatter plot analysis.
+ * Plots 'veces con >= 55%' on X-axis and 'Puntaje Promedio' on Y-axis.
  */
 export function aggregateProfessorsScatter(records: SurveyRecord[]): ScatterAggregationResult {
-  // 1. Filter by reliability threshold (coverage >= 55%)
-  const validRecords = records.filter(r => r.isValid);
-
-  if (validRecords.length === 0) {
+  if (!records || records.length === 0) {
     return {
       points: [],
       avgScore: 0,
-      medianStudents: 0,
-      avgStudents: 0,
-      minStudents: 0,
-      maxStudents: 0,
+      medianVeces: 0,
+      avgVeces: 0,
+      minVeces: 0,
+      maxVeces: 0,
       minScore: 0,
       maxScore: 5,
       yMin: 1,
-      yTicks: [1, 2, 3, 4, 5]
+      yTicks: [1, 2, 3, 4, 5],
+      xTicks: [0, 1, 2, 3]
     };
   }
 
-  // 2. Group by professor name
-  const profMap = new Map<string, {
-    totalEstudiantes: number;
-    totalMatriculados: number;
-    scores: number[];
-    cursos: Set<string>;
-    seccionesCount: number;
-  }>();
-
-  validRecords.forEach(r => {
-    if (!profMap.has(r.professor)) {
-      profMap.set(r.professor, {
-        totalEstudiantes: 0,
-        totalMatriculados: 0,
-        scores: [],
-        cursos: new Set<string>(),
-        seccionesCount: 0
-      });
-    }
-
-    const entry = profMap.get(r.professor)!;
-    entry.totalEstudiantes += r.responses;
-    entry.totalMatriculados += r.enrolled;
-    entry.scores.push(r.puntajeProfesor);
-    entry.cursos.add(r.courseName);
-    entry.seccionesCount += 1;
+  // Group all records by professor
+  const profAllMap = new Map<string, SurveyRecord[]>();
+  records.forEach(r => {
+    if (!profAllMap.has(r.professor)) profAllMap.set(r.professor, []);
+    profAllMap.get(r.professor)!.push(r);
   });
 
-  const points: ProfessorScatterPoint[] = Array.from(profMap.entries()).map(([professor, data]) => {
-    const promedio = Number(mean(data.scores).toFixed(2));
-    return {
+  const points: ProfessorScatterPoint[] = [];
+
+  profAllMap.forEach((allRows, professor) => {
+    const validRows = allRows.filter(r => r.isValid);
+    // Solo mostramos docentes con al menos una sección válida para que el promedio sea representativo
+    if (validRows.length === 0) return;
+
+    const scores = validRows.map(r => r.puntajeProfesor);
+    const promedio = Number(mean(scores).toFixed(2));
+    const totalMatriculados = validRows.reduce((sum, r) => sum + r.enrolled, 0);
+    const totalEstudiantes = validRows.reduce((sum, r) => sum + r.responses, 0);
+    const cursos = Array.from(new Set(validRows.map(r => r.courseName))).sort();
+
+    points.push({
       professor,
-      totalEstudiantes: data.totalEstudiantes,
-      totalMatriculados: data.totalMatriculados,
+      veces55: validRows.length,
+      totalSecciones: allRows.length,
+      totalMatriculados,
+      totalEstudiantes,
       promedio,
-      seccionesCount: data.seccionesCount,
-      cursos: Array.from(data.cursos).sort()
-    };
+      cursos
+    });
   });
+
+  if (points.length === 0) {
+    return {
+      points: [],
+      avgScore: 0,
+      medianVeces: 0,
+      avgVeces: 0,
+      minVeces: 0,
+      maxVeces: 0,
+      minScore: 0,
+      maxScore: 5,
+      yMin: 1,
+      yTicks: [1, 2, 3, 4, 5],
+      xTicks: [0, 1, 2, 3]
+    };
+  }
 
   // Calculate score benchmarks
   const allScores = points.map(p => p.promedio);
@@ -92,38 +99,42 @@ export function aggregateProfessorsScatter(records: SurveyRecord[]): ScatterAggr
   const minScore = Math.min(...allScores);
   const maxScore = Math.max(...allScores);
 
-  // Dynamic Y-axis lower integer tick near lowest score
-  // E.g., if lowest score is 3.12, floor is 3. Domain [3, 5], ticks [3, 3.5, 4, 4.5, 5]
   const floorMin = Math.floor(minScore);
   const yMin = Math.max(0, Math.min(4, floorMin));
 
   const yTicks: number[] = [];
-  // Build 0.5 step ticks from yMin to 5
   for (let t = yMin; t <= 5.001; t = Number((t + 0.5).toFixed(1))) {
     yTicks.push(t);
   }
 
-  // Calculate enrolled student benchmarks (X-axis)
-  const enrolledCounts = points.map(p => p.totalMatriculados).sort((a, b) => a - b);
-  const mid = Math.floor(enrolledCounts.length / 2);
-  const medianStudents = enrolledCounts.length % 2 !== 0
-    ? enrolledCounts[mid]
-    : Math.round((enrolledCounts[mid - 1] + enrolledCounts[mid]) / 2);
+  // Calculate veces55 benchmarks (X-axis)
+  const vecesList = points.map(p => p.veces55).sort((a, b) => a - b);
+  const mid = Math.floor(vecesList.length / 2);
+  const medianVeces = vecesList.length % 2 !== 0
+    ? vecesList[mid]
+    : Math.round((vecesList[mid - 1] + vecesList[mid]) / 2);
 
-  const avgStudents = Math.round(mean(enrolledCounts));
-  const minStudents = enrolledCounts[0] ?? 0;
-  const maxStudents = enrolledCounts[enrolledCounts.length - 1] ?? 100;
+  const avgVeces = Number(mean(vecesList).toFixed(1));
+  const minVeces = vecesList[0] ?? 0;
+  const maxVeces = vecesList[vecesList.length - 1] ?? 5;
+
+  const xTicks: number[] = [];
+  const maxX = Math.max(maxVeces + 1, 3);
+  for (let i = 0; i <= maxX; i++) {
+    xTicks.push(i);
+  }
 
   return {
     points,
     avgScore,
-    medianStudents,
-    avgStudents,
-    minStudents,
-    maxStudents,
+    medianVeces,
+    avgVeces,
+    minVeces,
+    maxVeces,
     minScore,
     maxScore,
     yMin,
-    yTicks
+    yTicks,
+    xTicks
   };
 }
