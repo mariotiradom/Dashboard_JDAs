@@ -243,6 +243,114 @@ for (const [key, group] of grouped.entries()) {
   });
 }
 
+// ═══ Include sections with 0 responses from official BBDD offerings ═══
+const existingKeys = new Set(records.map(r => {
+  const pureSec = r.section.replace(/[[\]()]/g, '').trim().split(' ')[0].toUpperCase();
+  return `${r.ciclo}|${normalizeStr(r.courseName)}|${pureSec}|${normalizeStr(r.professor)}`;
+}));
+
+const bbddOfferings = [
+  { ciclo: '26-2', file: 'DataBase/BBDD REA 26-2 - BBDDREDA.csv' },
+  { ciclo: '26-1', file: 'DataBase/BBDD SALONES 26-1 - BBDD REDA.csv' },
+  { ciclo: '25-1', file: 'DataBase/oferta académica 2025 I.xlsx - Consumo final de cupos por secc.csv' }
+];
+
+let zeroSectionsAdded = 0;
+for (const offering of bbddOfferings) {
+  if (!fs.existsSync(offering.file)) continue;
+  const content = fs.readFileSync(offering.file, 'utf-8').split('\n');
+  if (content.length < 2) continue;
+
+  const headerLine = content[0].trim();
+  const headers = [];
+  let inQ = false; let curr = '';
+  for (const char of headerLine) {
+    if (char === '"') inQ = !inQ;
+    else if (char === ',' && !inQ) { headers.push(curr.trim()); curr = ''; }
+    else curr += char;
+  }
+  headers.push(curr.trim());
+
+  const getCol = (cols, name) => {
+    const idx = headers.indexOf(name);
+    return idx >= 0 ? cols[idx] : undefined;
+  };
+
+  for (let i = 1; i < content.length; i++) {
+    const line = content[i].trim();
+    if (!line) continue;
+    let inQuotes = false; let current = ''; let cols = [];
+    for (const char of line) {
+      if (char === '"') inQuotes = !inQuotes;
+      else if (char === ',' && !inQuotes) { cols.push(current); current = ''; }
+      else current += char;
+    }
+    cols.push(current);
+
+    const daRaw = getCol(cols, 'Departamento');
+    const courseRaw = getCol(cols, 'Curso');
+    const seccionRaw = getCol(cols, 'Sección');
+    const profRaw = getCol(cols, 'Docente');
+    const matriculadosRaw = getCol(cols, 'Total Matriculados');
+
+    if (!courseRaw || !profRaw || !seccionRaw) continue;
+    if (profRaw.includes('?') || courseRaw.includes('?')) continue;
+
+    const formattedProf = profRaw
+      .toLowerCase()
+      .split(' ')
+      .filter(Boolean)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+
+    let da = (daRaw || 'Humanidades').trim().toUpperCase();
+    let formattedDa = 'Humanidades';
+    if (da.includes('ECONOM')) formattedDa = 'Economía';
+    else if (da.includes('INGENIER') || da.includes('ENGINEER')) formattedDa = 'Ingeniería';
+    else if (da.includes('HUMAN')) formattedDa = 'Humanidades';
+    else if (da.includes('ADMINISTR')) formattedDa = 'Administración';
+    else if (da.includes('DERECHO') || da.includes('RECHTS')) formattedDa = 'Derecho';
+    else if (da.includes('MARKETING')) formattedDa = 'Marketing y Negocios Internacionales';
+    else if (da.includes('CONTABILIDAD')) formattedDa = 'Contabilidad';
+    else if (da.includes('CIENCIAS SOCIALES') || da.includes('SOCIALE')) formattedDa = 'Ciencias Sociales y Políticas';
+    else if (da.includes('FINANZAS')) formattedDa = 'Finanzas';
+
+    const pureSec = seccionRaw.replace(/[[\]()]/g, '').trim().split(' ')[0].toUpperCase();
+    const matchKey = `${offering.ciclo}|${normalizeStr(courseRaw)}|${pureSec}|${normalizeStr(formattedProf)}`;
+
+    if (!existingKeys.has(matchKey)) {
+      existingKeys.add(matchKey);
+      const enrolledNum = parseInt((matriculadosRaw || '').trim(), 10) || 30;
+      const finalSection = `${pureSec} [${offering.ciclo}]`;
+      const finalCourseCode = `${courseRaw}_${pureSec} [${offering.ciclo}]`;
+
+      records.push({
+        courseCode: finalCourseCode,
+        courseName: courseRaw,
+        section: finalSection,
+        ciclo: offering.ciclo,
+        professor: formattedProf,
+        departamento: formattedDa,
+        enrolled: enrolledNum,
+        responses: 0,
+        alumnoCom: 0, alumnoPunt: 0, alumnoResp: 0, alumnoDedic: 0,
+        cursoIncent: 0, cursoObj: 0, cursoRec: 0, cursoDist: 0,
+        docenteAyuda: 0,
+        docenteMotiv: 0,
+        docenteRetro: 0,
+        docenteEstim: 0,
+        docenteInteres: 0,
+        docenteRespeto: 0,
+        docentePromedio: 0,
+        comentarios: []
+      });
+      zeroSectionsAdded++;
+    }
+  }
+}
+
+console.log(`Added ${zeroSectionsAdded} zero-response sections from official BBDD offerings.`);
 fs.writeFileSync('public/survey_data_v2.json', JSON.stringify(records, null, 2));
 console.log('Processed ' + records.length + ' aggregated records from BD files.');
+
 

@@ -143,7 +143,7 @@ export const GuideView: React.FC<Props> = ({ onNavigateTab }) => {
                   Vista General
                 </div>
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
-                  Resumen macro del departamento: promedio global, tasa de cobertura, top docentes y scatterplot histórico de consistencia.
+                  Resumen macro del departamento: promedio global, tasa de cobertura, top docentes, docentes con dificultades para llegar a la meta de participación y docentes bajo el promedio.
                 </p>
               </div>
               <button 

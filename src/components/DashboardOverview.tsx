@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { SurveyRecord } from '../services/googleSheets';
 import { Users, BookOpen, CheckCircle, TrendingUp } from 'lucide-react';
 import { mean } from '../utils/statistics';
-import ProfessorsScatterPlot from './ProfessorsScatterPlot';
+import ProfessorCoverageDifficultyChart from './ProfessorCoverageDifficultyChart';
 
 interface Props {
   data: SurveyRecord[];
@@ -23,7 +23,7 @@ function getTier(score: number): Tier {
   return              { label: 'En Riesgo',           color: 'var(--rea-naranja-intenso)', bg: 'rgba(242,103,73,0.12)' };
 }
 
-const DashboardOverview: React.FC<Props> = ({ data, allDaData, daName, onSelectProfessor }) => {
+const DashboardOverview: React.FC<Props> = ({ data, daName, onSelectProfessor }) => {
   // ═══ Exclusivamente secciones con cobertura >= 55% para representatividad estadística ═══
   const strictlyValidData = data.filter(d => d.isValid);
 
@@ -163,11 +163,11 @@ const DashboardOverview: React.FC<Props> = ({ data, allDaData, daName, onSelectP
         </div>
       </div>
 
-      {/* ═══ Dispersión: Frecuencia de Secciones Válidas vs Puntaje Promedio ═══ */}
-      <ProfessorsScatterPlot 
-        data={allDaData && allDaData.length > 0 ? allDaData : data} 
+      {/* ═══ Docentes con Dificultad para Llegar a la Meta (Ratio salones < 55% / total) ═══ */}
+      <ProfessorCoverageDifficultyChart 
+        data={data} 
         daName={daName} 
-        onSelectProfessor={onSelectProfessor}
+        onSelectProfessor={onSelectProfessor} 
       />
 
       {/* ═══ Docentes Bajo el Promedio ═══ */}
