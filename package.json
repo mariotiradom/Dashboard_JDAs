@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "node scripts/ensure_keys.cjs && vite",
+    "build": "node scripts/ensure_keys.cjs && tsc -b && vite build",
+    "generate-keys": "node generate_keys.cjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -1,21 +1,45 @@
+import { DEFAULT_DEPARTAMENTOS } from './keys.default';
+import { LOCAL_DEPARTAMENTOS } from './keys.local';
+
 export interface DepartamentoAcademico {
   code: string;
   name: string;
 }
 
-export const DEPARTAMENTOS: DepartamentoAcademico[] = [
-  { code: 'D3sm0nt31X1NG8', name: 'Ingeniería'},
-  { code: 'D3sm0nt31XC0nT3', name: 'Contabilidad'},
-  { code: 'D3sm0nt31X3c05', name: 'Economía'},
-  { code: 'D3sm0nt31XD3r4', name: 'Derecho'},
-  { code: 'D3sm0nt31XhUm7', name: 'Humanidades'},
-  { code: 'D3sm0nt31XAdm1', name: 'Administración'},
-  { code: 'D3sm0nt31XMkN19', name: 'Marketing y Negocios Internacionales'},
-  { code: 'D3sm0nt31Xf1N6', name: 'Finanzas'},
-  { code: 'D3sm0nt31XC5P2', name: 'Ciencias Sociales y Políticas'},
-];
+export function getDepartamentos(): DepartamentoAcademico[] {
+  // 1. Prioridad: Variable de entorno VITE_DA_KEYS (para despliegue seguro en Vercel)
+  const envKeys = import.meta.env.VITE_DA_KEYS;
+  if (envKeys) {
+    try {
+      const parsed = JSON.parse(envKeys);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    } catch (e) {
+      console.error('Error al parsear VITE_DA_KEYS:', e);
+    }
+  }
+
+  // 2. Claves locales generadas por generate_keys.cjs (ignoradas por Git)
+  if (Array.isArray(LOCAL_DEPARTAMENTOS) && LOCAL_DEPARTAMENTOS.length > 0) {
+    return LOCAL_DEPARTAMENTOS;
+  }
+
+  // 3. Fallback a claves por defecto
+  return DEFAULT_DEPARTAMENTOS;
+}
+
+export const DEPARTAMENTOS: DepartamentoAcademico[] = getDepartamentos();
+
+// Normaliza eliminando guiones, espacios y convirtiendo a mayúsculas
+function sanitizeCode(str: string): string {
+  return (str || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
 
 export function validateAccessCode(code: string): DepartamentoAcademico | null {
-  const normalized = code.trim().toUpperCase();
-  return DEPARTAMENTOS.find(d => d.code.toUpperCase() === normalized) || null;
+  const cleanInput = sanitizeCode(code);
+  if (!cleanInput) return null;
+
+  const list = getDepartamentos();
+  return list.find(d => sanitizeCode(d.code) === cleanInput) || null;
 }

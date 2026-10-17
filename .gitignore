@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Private keys and credentials
+src/config/keys.local.ts
+claves_departamentos.txt
+.env
+.env.local
+.env.*.local
+
