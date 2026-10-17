@@ -182,7 +182,10 @@ for (const file of bdFiles) {
     group.rawMedianScores.push(...rowMedianValues);
     
     if (evaluacionComentario) {
-      group.comentarios.push(evaluacionComentario);
+      const lower = evaluacionComentario.toLowerCase();
+      if (!['null', 'rea1', 'rea2', 'rea3', 'none', 'nan', 'n/a', '-'].includes(lower)) {
+        group.comentarios.push(evaluacionComentario);
+      }
     }
   }
 }
