@@ -7,11 +7,16 @@ export interface DepartamentoAcademico {
 }
 
 export function getDepartamentos(): DepartamentoAcademico[] {
-  // 1. Prioridad: Variable de entorno VITE_DA_KEYS (para despliegue seguro en Vercel)
-  const envKeys = import.meta.env.VITE_DA_KEYS;
+  let envKeys = import.meta.env.VITE_DA_KEYS;
   if (envKeys) {
     try {
-      const parsed = JSON.parse(envKeys);
+      if (typeof envKeys === 'string') {
+        envKeys = envKeys.trim();
+        if ((envKeys.startsWith("'") && envKeys.endsWith("'")) || (envKeys.startsWith('"') && envKeys.endsWith('"'))) {
+          envKeys = envKeys.slice(1, -1);
+        }
+      }
+      const parsed = typeof envKeys === 'string' ? JSON.parse(envKeys) : envKeys;
       if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed;
       }
