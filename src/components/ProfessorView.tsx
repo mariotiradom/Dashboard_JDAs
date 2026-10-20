@@ -208,7 +208,7 @@ const ProfessorView: React.FC<Props> = ({ data, availableCiclos, initialProfesso
                     <td style={{ fontWeight: 600 }}>{row.section.replace(/[[\]()]/g, '').trim()}</td>
                     <td style={{ color: 'var(--text-secondary)' }}>{row.courseName} <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>{row.courseCode}</span></td>
                     <td style={{ color: row.isValid ? 'inherit' : 'var(--rea-naranja)' }}>
-                      {(row.coverage * 100).toFixed(1)}%
+                      {Math.round(row.coverage * 100)}%
                       {!row.isValid && <span className="badge badge-warning" style={{ marginLeft: '0.5rem' }}>Baja Cobertura</span>}
                     </td>
                     <td style={{ 
