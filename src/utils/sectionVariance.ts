@@ -22,6 +22,7 @@ export interface SectionStat {
   /** Just the letter, e.g. "A" */
   sectionLabel: string;
   professor: string;
+  professors?: string[];
   promedioSeccion: number;
   /** promedioSeccion − promedioCurso */
   delta: number;
@@ -43,7 +44,8 @@ export interface CourseVariance {
 // ── Aggregation ───────────────────────────────────────────────────────────────
 /**
  * Given all SurveyRecord rows for a single course, compute per-ciclo section
- * variance. Includes all sections, flagging low coverage (< 55%) as isValid = false.
+ * variance. Consolidates multi-professor sections so each section appears exactly once.
+ * Flags low coverage (< 55%) as isValid = false.
  */
 export function computeSectionVariance(records: SurveyRecord[]): CourseVariance[] {
   if (!records || records.length === 0) return [];
@@ -58,30 +60,51 @@ export function computeSectionVariance(records: SurveyRecord[]): CourseVariance[
   const result: CourseVariance[] = [];
 
   for (const [ciclo, rows] of byCiclo.entries()) {
-    const validRows = rows.filter(r => r.isValid);
-    const validScores = validRows.map(r => r.puntajeProfesor);
+    // Group rows by unique section (e.g. "A [26-2]" -> "A")
+    const sectionMap = new Map<string, SurveyRecord[]>();
+    rows.forEach(r => {
+      const cleanLabel = r.section.replace(/[[\]()]/g, '').trim().split(' ')[0] || r.section;
+      if (!sectionMap.has(cleanLabel)) sectionMap.set(cleanLabel, []);
+      sectionMap.get(cleanLabel)!.push(r);
+    });
+
+    // Consolidate into unique section entries
+    const uniqueSections = Array.from(sectionMap.entries()).map(([cleanLabel, secRows]) => {
+      const first = secRows[0];
+      const allProfs = Array.from(new Set(secRows.map(r => r.professor)));
+      const scores = secRows.map(r => r.puntajeProfesor);
+      const promedio = Number(mean(scores).toFixed(2));
+      const coverage = first.coverage;
+      const isValid = first.isValid;
+
+      return {
+        section: first.section,
+        sectionLabel: cleanLabel,
+        professor: allProfs.join(', '),
+        professors: allProfs,
+        promedioSeccion: promedio,
+        coverage,
+        isValid
+      };
+    });
+
+    const validSections = uniqueSections.filter(s => s.isValid);
+    const validScores = validSections.map(s => s.promedioSeccion);
     const hasValidSections = validScores.length > 0;
     const promedioCurso = hasValidSections ? Number(mean(validScores).toFixed(2)) : 0;
     const spread = validScores.length > 1
       ? Number((Math.max(...validScores) - Math.min(...validScores)).toFixed(2))
       : 0;
 
-    const secciones: SectionStat[] = rows
-      .map(r => {
-        // Remove brackets/parens from section if any, e.g. "A [26-2]" -> "A"
-        const cleanLabel = r.section.replace(/[[\]()]/g, '').trim().split(' ')[0] || r.section;
-        const delta = (r.isValid && promedioCurso > 0)
-          ? Number((r.puntajeProfesor - promedioCurso).toFixed(2))
+    const secciones: SectionStat[] = uniqueSections
+      .map(s => {
+        const delta = (s.isValid && promedioCurso > 0)
+          ? Number((s.promedioSeccion - promedioCurso).toFixed(2))
           : 0;
 
         return {
-          section:        r.section,
-          sectionLabel:   cleanLabel,
-          professor:      r.professor,
-          promedioSeccion: Number(r.puntajeProfesor.toFixed(2)),
+          ...s,
           delta,
-          coverage:       r.coverage,
-          isValid:        r.isValid,
         };
       })
       .sort((a, b) => {

@@ -18,8 +18,24 @@ function parseCSVLine(line) {
   return cols;
 }
 
+const CANONICAL_PROFS = {
+  'jose francisco espinoza matos': 'Espinoza Matos José Francisco',
+  'andrea carreras merino': 'Carreras Merino Andrea',
+  'lukis bambaren fernando armando': 'Bambaren Lukis Fernando Armando',
+  'carrion caravedo ursula': 'Carrion Caravedo Ursula',
+  'reano peschiera jose leandro': 'Reaño Peschiera Jose Leandro',
+  'diaz rojas carlos andres': 'Diaz Rojas Carlos Andres',
+  'kobayashi ando maria elena': 'Kobayashi Ando Maria Elena',
+  'beltran puerta jorge': 'Beltran Puerta Jorge',
+  'torres perez elvis': 'Torres Perez Elvis'
+};
+
 function formatProfessor(name) {
-  return (name || '')
+  if (!name) return '';
+  const n = normalizeStr(name);
+  if (CANONICAL_PROFS[n]) return CANONICAL_PROFS[n];
+
+  return name
     .toLowerCase()
     .split(' ')
     .filter(Boolean)

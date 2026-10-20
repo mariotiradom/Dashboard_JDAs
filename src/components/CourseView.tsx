@@ -25,12 +25,34 @@ const CourseView: React.FC<Props> = ({ data, activeCiclo, onSelectProfessor }) =
     return data.filter(d => d.courseName === activeCourse);
   }, [data, activeCourse]);
 
-  // Secciones evaluables (cobertura >= 55% para asegurar representatividad estadística)
-  const validSections = useMemo(() => {
-    return courseData.filter(d => d.isValid);
+  // Consolidar por sección única para evitar duplicar secciones con múltiples docentes
+  const uniqueSections = useMemo(() => {
+    const map = new Map<string, SurveyRecord[]>();
+    courseData.forEach(d => {
+      const cleanLabel = d.section.replace(/[[\]()]/g, '').trim().split(' ')[0] || d.section;
+      const key = `${d.ciclo}_${cleanLabel}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(d);
+    });
+
+    return Array.from(map.values()).map(secRows => {
+      const first = secRows[0];
+      const allProfs = Array.from(new Set(secRows.map(r => r.professor)));
+      const scores = secRows.map(r => r.puntajeProfesor);
+      return {
+        ...first,
+        professor: allProfs.join(', '),
+        puntajeProfesor: Number(mean(scores).toFixed(2))
+      };
+    });
   }, [courseData]);
 
-  // Overall curso baseline (promedioCurso across valid sections)
+  // Secciones evaluables (cobertura >= 55% para asegurar representatividad estadística)
+  const validSections = useMemo(() => {
+    return uniqueSections.filter(d => d.isValid);
+  }, [uniqueSections]);
+
+  // Overall curso baseline (promedioCurso across unique valid sections)
   const promedioCurso = useMemo(() => {
     return validSections.length > 0 ? Number(mean(validSections.map(d => d.puntajeProfesor)).toFixed(2)) : 0;
   }, [validSections]);
@@ -47,11 +69,11 @@ const CourseView: React.FC<Props> = ({ data, activeCiclo, onSelectProfessor }) =
     return computeHistoricalCourseVariance(courseData);
   }, [courseData, isHistorical]);
 
-  // Docentes en secciones válidas
+  // Docentes únicos en secciones válidas
   const profCount = useMemo(() => {
-    const profs = new Set(validSections.map(d => d.professor));
+    const profs = new Set(courseData.filter(d => d.isValid).map(d => d.professor));
     return profs.size;
-  }, [validSections]);
+  }, [courseData]);
 
   if (!activeCourse) {
     return <div>No hay cursos disponibles en este departamento.</div>;
@@ -88,7 +110,7 @@ const CourseView: React.FC<Props> = ({ data, activeCiclo, onSelectProfessor }) =
         </div>
         <div className="card stat-card">
           <div className="stat-title">Secciones Evaluadas</div>
-          <div className="stat-value">{courseData.length}</div>
+          <div className="stat-value">{uniqueSections.length}</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
             {validSections.length} representativas
           </div>

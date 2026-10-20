@@ -48,11 +48,11 @@ const CustomChartTooltip: React.FC<CustomChartTooltipProps> = ({ active, payload
       }}
     >
       <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '4px' }}>
-        {data.professor}
+        {data.sectionLabel ? `Sección ${data.sectionLabel}` : data.professor}
       </div>
       {data.sectionLabel && (
-        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '6px' }}>
-          Sección {data.sectionLabel}
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: '6px' }}>
+          <strong>Docente{data.professors && data.professors.length > 1 ? 's' : ''}:</strong> {data.professor}
         </div>
       )}
       <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -275,12 +275,20 @@ export const SectionVarianceCard: React.FC<Props> = ({
   const currentVariance = varianceData[0];
   const { promedioCurso, spread, isHighDispersion, hasValidSections, secciones } = currentVariance;
 
-  // Se muestra solo la letra de la sección (ej. "K — Torres Suarez Rolando Martin")
-  const chartData = secciones.map(sec => ({
-    ...sec,
-    label: `${sec.sectionLabel} — ${sec.professor}`,
-    puntaje: sec.promedioSeccion,
-  }));
+  // Formato de etiqueta por sección (ej. "A — Vasquez Ore / Benites Sanchez" o "C — Maehara Aliaga")
+  const chartData = secciones.map(sec => {
+    let profLabel = sec.professor;
+    if (sec.professors && sec.professors.length > 1) {
+      profLabel = sec.professors
+        .map(p => p.split(' ').slice(0, 2).join(' '))
+        .join(' / ');
+    }
+    return {
+      ...sec,
+      label: `${sec.sectionLabel} — ${profLabel}`,
+      puntaje: sec.promedioSeccion,
+    };
+  });
 
   return (
     <div className="card mt-4">
@@ -352,7 +360,7 @@ export const SectionVarianceCard: React.FC<Props> = ({
             <YAxis
               type="category"
               dataKey="label"
-              width={180}
+              width={200}
               tick={{ fill: 'var(--text-primary)', fontSize: 12, fontWeight: 600 }}
             />
             <RechartsTooltip
@@ -380,8 +388,12 @@ export const SectionVarianceCard: React.FC<Props> = ({
               barSize={24}
               style={{ cursor: onSelectProfessor ? 'pointer' : 'default' }}
               onClick={(entry: any) => {
-                if (entry && entry.professor) {
-                  onSelectProfessor?.(entry.professor);
+                if (entry) {
+                  if (entry.professors && entry.professors.length > 0) {
+                    onSelectProfessor?.(entry.professors[0]);
+                  } else if (entry.professor) {
+                    onSelectProfessor?.(entry.professor);
+                  }
                 }
               }}
             >
