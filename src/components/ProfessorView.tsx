@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import type { SurveyRecord } from '../services/googleSheets';
 import { mean } from '../utils/statistics';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, CartesianGrid, XAxis, YAxis, Bar, Cell, ReferenceLine } from 'recharts';
-import { AlertTriangle, User, Filter } from 'lucide-react';
+import { AlertTriangle, User, Filter, MessageSquare, BookOpen } from 'lucide-react';
 import SearchBar from './SearchBar';
 
 interface Props {
@@ -14,28 +14,52 @@ interface Props {
 
 const ProfessorView: React.FC<Props> = ({ data, availableCiclos, initialProfessor, activeCiclo }) => {
   const isHistorical = activeCiclo === 'Histórico';
-  const professors = Array.from(new Set(data.map(d => d.professor))).sort();
+
+  // Solo consideramos secciones con al menos 1 respuesta registrada (>0% cobertura)
+  // Las secciones con 0% no se muestran ya que no cuentan con datos evaluables
+  const evaluableData = useMemo(() => {
+    return data.filter(d => d.responses > 0);
+  }, [data]);
+
+  const professors = useMemo(() => {
+    const list = Array.from(new Set(evaluableData.map(d => d.professor))).sort();
+    // Si viene un initialProfessor seleccionado (p. ej. desde la gráfica de dificultad de cobertura en Vista General),
+    // lo mantenemos accesible para que la selección no se pierda aunque en este ciclo sus salones tengan 0%
+    if (initialProfessor && !list.includes(initialProfessor) && data.some(d => d.professor === initialProfessor)) {
+      list.push(initialProfessor);
+      list.sort();
+    }
+    return list;
+  }, [evaluableData, data, initialProfessor]);
+
   const [selectedProf, setSelectedProf] = useState<string>(
-    initialProfessor && professors.includes(initialProfessor) ? initialProfessor : (professors[0] || '')
+    initialProfessor && (professors.includes(initialProfessor) || data.some(d => d.professor === initialProfessor))
+      ? initialProfessor
+      : (professors[0] || '')
   );
   const [selectedSection, setSelectedSection] = useState<string>('Todas las secciones');
+  const [selectedCommentCourse, setSelectedCommentCourse] = useState<string>('ALL');
+  const [selectedCommentSection, setSelectedCommentSection] = useState<string>('ALL');
 
   // Sync selected professor when initialProfessor prop changes
   useEffect(() => {
-    if (initialProfessor && professors.includes(initialProfessor)) {
+    if (initialProfessor && (professors.includes(initialProfessor) || data.some(d => d.professor === initialProfessor))) {
       setSelectedProf(initialProfessor);
     }
-  }, [initialProfessor, professors]);
+  }, [initialProfessor, professors, data]);
 
   const activeProf = (professors.includes(selectedProf) ? selectedProf : professors[0]) || '';
 
-  // Reset section filter when professor changes
+  // Reset section and comment filters when professor changes
   useEffect(() => {
     setSelectedSection('Todas las secciones');
+    setSelectedCommentCourse('ALL');
+    setSelectedCommentSection('ALL');
   }, [activeProf]);
 
   const allProfData = useMemo(() => {
-    return data.filter(d => d.professor === activeProf);
+    // Solo mostramos cursos y secciones del docente que tengan al menos 1 respuesta (>0%)
+    return data.filter(d => d.professor === activeProf && d.responses > 0);
   }, [data, activeProf]);
 
   const availableSections = useMemo(() => {
@@ -94,6 +118,102 @@ const ProfessorView: React.FC<Props> = ({ data, availableCiclos, initialProfesso
     });
   }, [tableData, isHistorical]);
 
+  // ═══ Comentarios de Estudiantes con Filtros por Curso y Sección ═══
+  interface CommentItem {
+    id: string;
+    text: string;
+    courseName: string;
+    section: string;
+    cleanSection: string;
+    ciclo?: string;
+    isValid: boolean;
+  }
+
+  const allComments = useMemo<CommentItem[]>(() => {
+    const visibleData = allProfData.filter(d => availableCiclos.includes(d.ciclo || ''));
+    const list: CommentItem[] = [];
+    const seen = new Set<string>();
+
+    visibleData.forEach((d, dIdx) => {
+      const rawComms = d.comentarios || [];
+      const cleanSec = d.section.replace(/[[\]()]/g, '').trim().split(' ')[0] || d.section;
+
+      rawComms.forEach((text, i) => {
+        const trimmed = text.trim();
+        if (!trimmed) return;
+        const key = `${d.courseName}|${cleanSec}|${d.ciclo || ''}|${trimmed}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: `${d.courseCode || d.courseName}-${d.ciclo || ''}-${cleanSec}-${dIdx}-${i}`,
+            text: trimmed,
+            courseName: d.courseName,
+            section: d.section,
+            cleanSection: cleanSec,
+            ciclo: d.ciclo,
+            isValid: d.isValid
+          });
+        }
+      });
+    });
+
+    return list;
+  }, [allProfData, availableCiclos]);
+
+  // Cursos del docente en el período visible
+  const commentCourses = useMemo(() => {
+    const visibleData = allProfData.filter(d => availableCiclos.includes(d.ciclo || ''));
+    return Array.from(new Set(visibleData.map(d => d.courseName))).sort();
+  }, [allProfData, availableCiclos]);
+
+  // Secciones disponibles para el curso seleccionado (o todas si está en 'ALL')
+  const availableCommentSections = useMemo(() => {
+    const visibleData = allProfData.filter(d => availableCiclos.includes(d.ciclo || ''));
+    const relevantRecords = selectedCommentCourse === 'ALL'
+      ? visibleData
+      : visibleData.filter(d => d.courseName === selectedCommentCourse);
+
+    const sectionCounts = new Map<string, number>();
+    let totalCount = 0;
+
+    relevantRecords.forEach(d => {
+      const commCount = (d.comentarios || []).length;
+      const cleanSec = d.section.replace(/[[\]()]/g, '').trim().split(' ')[0] || d.section;
+      sectionCounts.set(cleanSec, (sectionCounts.get(cleanSec) || 0) + commCount);
+      totalCount += commCount;
+    });
+
+    const list = Array.from(sectionCounts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([sec, count]) => ({
+        key: sec,
+        label: `Sección ${sec}`,
+        count
+      }));
+
+    return [
+      { key: 'ALL', label: 'Todas las secciones', count: totalCount },
+      ...list
+    ];
+  }, [allProfData, availableCiclos, selectedCommentCourse]);
+
+  // Comentarios filtrados según curso y sección elegidos
+  const filteredComments = useMemo(() => {
+    return allComments.filter(item => {
+      if (selectedCommentCourse !== 'ALL' && item.courseName !== selectedCommentCourse) {
+        return false;
+      }
+      if (selectedCommentSection !== 'ALL' && item.cleanSection !== selectedCommentSection) {
+        return false;
+      }
+      return true;
+    });
+  }, [allComments, selectedCommentCourse, selectedCommentSection]);
+
+  const getCourseCommentCount = (course: string) => {
+    return allComments.filter(c => c.courseName === course).length;
+  };
+
   if (!activeProf) {
     return <div>No hay docentes disponibles en este departamento.</div>;
   }
@@ -130,7 +250,22 @@ const ProfessorView: React.FC<Props> = ({ data, availableCiclos, initialProfesso
         </div>
       </div>
 
-      <div className="stats-grid">
+      {allProfData.length === 0 ? (
+        <div className="card mt-4" style={{ padding: '3.5rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <AlertTriangle size={48} color="var(--rea-goldenrod)" style={{ marginBottom: '1rem', opacity: 0.85 }} />
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.6rem', color: 'var(--text-primary)' }}>
+            Sin Evaluaciones Registradas en {activeCiclo || 'este período'}
+          </h3>
+          <p style={{ color: 'var(--text-secondary)', maxWidth: '580px', lineHeight: 1.6, fontSize: '0.9rem', marginBottom: '1rem' }}>
+            El docente <strong>{activeProf}</strong> tiene cursos asignados en el ciclo <strong>{activeCiclo}</strong>, pero ninguna sección obtuvo respuestas de los estudiantes (0% de participación).
+          </p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', maxWidth: '540px' }}>
+            Estos salones se contabilizan en el reporte macro de cobertura en la <strong>Vista General</strong>. Para consultar períodos anteriores con participación registrada, seleccione <strong>Histórico</strong> en el selector de período.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="stats-grid">
         <div className="card flex-center" style={{ flexDirection: 'column', textAlign: 'center', background: 'var(--surface-color)', borderTop: '4px solid var(--primary)' }}>
           <div className="stat-title">Puntaje Promedio Docente</div>
           {profScore !== null ? (
@@ -317,24 +452,286 @@ const ProfessorView: React.FC<Props> = ({ data, availableCiclos, initialProfesso
         </div>
       </div>
 
-      {/* Sección de Comentarios */}
+      {/* Sección de Comentarios con Filtros por Curso y Sección */}
       <div className="card mt-4">
-        <h3 className="chart-title">Comentarios de Estudiantes</h3>
-        <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-          {Array.from(new Set(profData.flatMap(d => d.comentarios || []))).length > 0 ? (
-            Array.from(new Set(profData.flatMap(d => d.comentarios || []))).map((comentario, idx) => (
-              <div key={idx} style={{ padding: '1rem', backgroundColor: 'var(--bg-color)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--primary-light)', color: 'var(--text-secondary)' }}>
-                "{comentario}"
+        <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+          <div>
+            <h3 className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+              <MessageSquare size={20} color="var(--primary)" />
+              Comentarios de Estudiantes
+              <span className="badge badge-primary" style={{ fontSize: '0.75rem', marginLeft: '0.25rem' }}>
+                {filteredComments.length} {filteredComments.length === 1 ? 'comentario' : 'comentarios'}
+              </span>
+            </h3>
+            <p className="dashboard-subtitle" style={{ fontSize: '0.82rem', margin: 0 }}>
+              Retroalimentación cualitativa recopilada en las encuestas de opinión estudiantil
+            </p>
+          </div>
+        </div>
+
+        {/* Pestañas de Cursos y Filtro de Secciones */}
+        {commentCourses.length > 0 && (
+          <div style={{ marginBottom: '1.25rem' }}>
+            {/* Pestañas de Cursos */}
+            <div
+              style={{
+                display: 'flex',
+                gap: '0.5rem',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                paddingBottom: '0.75rem',
+                borderBottom: '1px solid var(--border-color)'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCommentCourse('ALL');
+                  setSelectedCommentSection('ALL');
+                }}
+                style={{
+                  padding: '0.4rem 0.85rem',
+                  borderRadius: 'var(--radius-full)',
+                  border: selectedCommentCourse === 'ALL' ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                  backgroundColor: selectedCommentCourse === 'ALL' ? 'var(--primary)' : 'var(--bg-color)',
+                  color: selectedCommentCourse === 'ALL' ? '#ffffff' : 'var(--text-secondary)',
+                  fontSize: '0.82rem',
+                  fontWeight: selectedCommentCourse === 'ALL' ? 600 : 500,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>Todos los cursos</span>
+                <span
+                  style={{
+                    fontSize: '0.7rem',
+                    padding: '2px 7px',
+                    borderRadius: '999px',
+                    backgroundColor: selectedCommentCourse === 'ALL' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.06)',
+                    color: selectedCommentCourse === 'ALL' ? '#ffffff' : 'var(--text-muted)'
+                  }}
+                >
+                  {allComments.length}
+                </span>
+              </button>
+
+              {commentCourses.map(course => {
+                const count = getCourseCommentCount(course);
+                const isSelected = selectedCommentCourse === course;
+                return (
+                  <button
+                    key={course}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCommentCourse(course);
+                      setSelectedCommentSection('ALL');
+                    }}
+                    style={{
+                      padding: '0.4rem 0.85rem',
+                      borderRadius: 'var(--radius-full)',
+                      border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                      backgroundColor: isSelected ? 'var(--primary)' : 'var(--bg-color)',
+                      color: isSelected ? '#ffffff' : 'var(--text-secondary)',
+                      fontSize: '0.82rem',
+                      fontWeight: isSelected ? 600 : 500,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <BookOpen size={14} style={{ opacity: isSelected ? 0.9 : 0.6 }} />
+                    <span>{course}</span>
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        padding: '2px 7px',
+                        borderRadius: '999px',
+                        backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.06)',
+                        color: isSelected ? '#ffffff' : 'var(--text-muted)'
+                      }}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Sub-filtro de Secciones (cuando hay opciones de sección) */}
+            {availableCommentSections.length > 1 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  flexWrap: 'wrap',
+                  marginTop: '0.75rem',
+                  paddingLeft: '0.25rem'
+                }}
+              >
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, marginRight: '0.25rem' }}>
+                  Sección:
+                </span>
+                {availableCommentSections.map(sec => {
+                  const isSelected = selectedCommentSection === sec.key;
+                  return (
+                    <button
+                      key={sec.key}
+                      type="button"
+                      onClick={() => setSelectedCommentSection(sec.key)}
+                      style={{
+                        padding: '0.25rem 0.65rem',
+                        borderRadius: 'var(--radius-md)',
+                        border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                        backgroundColor: isSelected ? 'rgba(32, 78, 207, 0.10)' : 'var(--surface-color)',
+                        color: isSelected ? 'var(--primary)' : 'var(--text-secondary)',
+                        fontSize: '0.76rem',
+                        fontWeight: isSelected ? 600 : 500,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>{sec.label}</span>
+                      <span style={{ fontSize: '0.68rem', opacity: 0.75 }}>({sec.count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Lista de Comentarios */}
+        <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {filteredComments.length > 0 ? (
+            filteredComments.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  padding: '1rem 1.15rem',
+                  backgroundColor: 'var(--bg-color)',
+                  borderRadius: 'var(--radius-md)',
+                  borderLeft: '4px solid var(--primary)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem'
+                }}
+              >
+                <div style={{ color: 'var(--text-primary)', fontSize: '0.88rem', lineHeight: 1.55, fontStyle: 'italic' }}>
+                  "{item.text}"
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.72rem', marginTop: '0.25rem' }}>
+                  <span
+                    className="badge badge-primary"
+                    style={{ fontSize: '0.7rem', padding: '0.15rem 0.55rem' }}
+                  >
+                    {item.courseName}
+                  </span>
+                  <span
+                    style={{
+                      padding: '0.15rem 0.55rem',
+                      borderRadius: 'var(--radius-full)',
+                      backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                      color: 'var(--text-secondary)',
+                      fontWeight: 600,
+                      fontSize: '0.7rem'
+                    }}
+                  >
+                    Sección {item.cleanSection}
+                  </span>
+                  {item.ciclo && (
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '0.72rem' }}>
+                      Ciclo {item.ciclo}
+                    </span>
+                  )}
+                  {!item.isValid && (
+                    <span className="badge badge-warning" style={{ fontSize: '0.68rem', padding: '0.1rem 0.45rem' }}>
+                      Baja Cobertura
+                    </span>
+                  )}
+                </div>
               </div>
             ))
+          ) : allComments.length > 0 ? (
+            <div
+              style={{
+                padding: '2.5rem 1rem',
+                color: 'var(--text-muted)',
+                textAlign: 'center',
+                backgroundColor: 'var(--bg-color)',
+                borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              <MessageSquare size={32} style={{ opacity: 0.35, marginBottom: '0.25rem' }} />
+              <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
+                No hay comentarios para la selección actual
+              </div>
+              <div style={{ fontSize: '0.8rem' }}>
+                No se registraron comentarios en {selectedCommentCourse !== 'ALL' ? selectedCommentCourse : 'este filtro'} {selectedCommentSection !== 'ALL' ? `(Sección ${selectedCommentSection})` : ''}.
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCommentCourse('ALL');
+                  setSelectedCommentSection('ALL');
+                }}
+                style={{
+                  marginTop: '0.5rem',
+                  padding: '0.35rem 0.9rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--primary)',
+                  backgroundColor: 'transparent',
+                  color: 'var(--primary)',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Ver todos los comentarios ({allComments.length})
+              </button>
+            </div>
           ) : (
-            <div style={{ padding: '1rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
-              No hay comentarios disponibles para este docente.
+            <div
+              style={{
+                padding: '2.5rem 1rem',
+                color: 'var(--text-muted)',
+                textAlign: 'center',
+                backgroundColor: 'var(--bg-color)',
+                borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              <MessageSquare size={32} style={{ opacity: 0.35, marginBottom: '0.25rem' }} />
+              <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Sin comentarios disponibles
+              </div>
+              <div style={{ fontSize: '0.8rem' }}>
+                No hay comentarios de estudiantes registrados para este docente en el período seleccionado.
+              </div>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </>
+  )}
+</div>
   );
 };
 

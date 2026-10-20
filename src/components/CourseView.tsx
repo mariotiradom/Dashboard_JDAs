@@ -15,15 +15,24 @@ interface Props {
 
 const CourseView: React.FC<Props> = ({ data, activeCiclo, onSelectProfessor }) => {
   const isHistorical = activeCiclo === 'Histórico';
-  const courses = Array.from(new Set(data.map(d => d.courseName))).sort();
+
+  // Solo cursos y secciones con al menos 1 respuesta registrada (>0% cobertura)
+  const evaluableData = useMemo(() => {
+    return data.filter(d => d.responses > 0);
+  }, [data]);
+
+  const courses = useMemo(() => {
+    return Array.from(new Set(evaluableData.map(d => d.courseName))).sort();
+  }, [evaluableData]);
+
   const [selectedCourse, setSelectedCourse] = useState<string>(courses[0] || '');
 
   const activeCourse = (courses.includes(selectedCourse) ? selectedCourse : courses[0]) || '';
 
   // All records for the active course
   const courseData = useMemo(() => {
-    return data.filter(d => d.courseName === activeCourse);
-  }, [data, activeCourse]);
+    return evaluableData.filter(d => d.courseName === activeCourse);
+  }, [evaluableData, activeCourse]);
 
   // Consolidar por sección única para evitar duplicar secciones con múltiples docentes
   const uniqueSections = useMemo(() => {
